@@ -36,10 +36,19 @@ function showActiveSession(roomCode) {
     copyBtn.innerText = "Copy Invite Link";
     copyBtn.style.marginTop = "5px";
     copyBtn.onclick = () => {
-        const inviteUrl = `https://www.netflix.com/watch?togetherViewRoom=${roomCode}`;
-        navigator.clipboard.writeText(inviteUrl);
-        copyBtn.innerText = "Link Copied!";
-        setTimeout(() => { copyBtn.innerText = "Copy Invite Link"; }, 2000);
+        chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+            const currentUrl = tabs[0].url;
+          
+            const baseUrl = currentUrl.split('?')[0]; 
+            const videoId = currentUrl.match(/watch\/(\d+)/)?.[0] || "";
+          
+            const inviteUrl = `https://www.netflix.com/${videoId}?togetherViewRoom=${roomCode}`;
+          
+            navigator.clipboard.writeText(inviteUrl).then(() => {
+                copyBtn.innerText = "Link Copied!";
+                setTimeout(() => { copyBtn.innerText = "Copy Invite Link"; }, 2000);
+            });
+        });
     };
     document.body.appendChild(copyBtn);
 }
