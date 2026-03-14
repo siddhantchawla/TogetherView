@@ -1,98 +1,98 @@
 /**
  * TogetherView: Content Script
- * Responsibilities: DOM Injection, Loop Prevention, Time Synchronization
  */
 
 let isHost = false;
 let isRemoteEvent = false;
 let videoElement = null;
+const SYNC_THRESHOLD = 2.0; // Seconds of drift allowed before we force a seek
 
-// Ask Background script for our role immediately
+// 1. ROLE CHECK
 chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
-    if (response) isHost = response.isHost;
+    if (response) {
+        isHost = response.isHost;
+        console.log("TogetherView: Role assigned -", isHost ? "HOST" : "GUEST");
+    }
 });
 
-// The Netflix API Hook
-function getNetflixPlayer() {
-    try {
-        const videoPlayer = netflix.appContext.state.playerApp.getAPI().videoPlayer;
-        const sessionId = videoPlayer.getAllPlayerSessionIds()[0];
-        return videoPlayer.getVideoPlayerBySessionId(sessionId);
-    } catch (e) { return null; }
-}
-
-// Logic gate and Remote Executors (Cloud -> Netflix)
+// 2. REMOTE MESSAGE HANDLER
 chrome.runtime.onMessage.addListener((message) => {
     if (!videoElement) return;
-    // const player = getNetflixPlayer();
 
     // HANDSHAKE: Only the Host responds to sync requests
     if (message.type === 'SYNC_GET_STATUS') {
         if (isHost) {
-            console.log("TogetherView: I am Host. Sending status to new peer.");
+            console.log("TogetherView: Responding to sync request...");
             broadcast(videoElement.paused ? 'PAUSE' : 'PLAY');
         }
         return; 
     }
 
-    // EXECUTION: Use the player API to seek
-    isRemoteEvent = true;
+    // EXECUTION
     const remoteTime = message.time;
-    const timeDiff = Math.abs(videoElement.currentTime - remoteTime);
+    const localTime = videoElement.currentTime;
+    const timeDiff = Math.abs(localTime - remoteTime);
 
-    if (message.type === 'SYNC_PLAY') {
-        if (timeDiff > 1.5) videoElement.currentTime = remoteTime;
-        videoElement.play();
-    } else if (message.type === 'SYNC_PAUSE' || message.type === 'SYNC_SEEK') {
+    isRemoteEvent = true;
+
+    if (message.type === 'SYNC_PAUSE') {
+        // ALWAYS pause first. Netflix is safest when paused.
+        videoElement.pause();
+        if (timeDiff > SYNC_THRESHOLD) videoElement.currentTime = remoteTime;
+    } 
+    
+    else if (message.type === 'SYNC_PLAY') {
+        // Only adjust time if we are currently paused or drift is massive
+        if (videoElement.paused) {
+            if (timeDiff > SYNC_THRESHOLD) videoElement.currentTime = remoteTime;
+            videoElement.play().catch(() => console.log("Play blocked by browser."));
+        } else if (timeDiff > SYNC_THRESHOLD) {
+            videoElement.pause();
+            videoElement.currentTime = remoteTime;
+            setTimeout(() => {
+                videoElement.play().catch(() => console.log("Play blocked after seek."));
+            }, 50);
+        }
+    } 
+    
+    else if (message.type === 'SYNC_SEEK') {
+        const wasPaused = videoElement.paused;
+        videoElement.pause();
         videoElement.currentTime = remoteTime;
-        if (message.type === 'SYNC_PAUSE') videoElement.pause();
+        if (!wasPaused) {
+            setTimeout(() => {
+                videoElement.play().catch(() => console.log("Play blocked after seek."));
+            }, 50);
+        }
     }
 
+    // Guard window: prevents local listeners from reacting to our own sync
     setTimeout(() => { isRemoteEvent = false; }, 1000);
 });
 
+// 3. INITIALIZATION
 const init = () => {
-    // Netflix uses a complex player; we wait for the video element to exist
-    const videoSelector = 'video';
-    videoElement = document.querySelector(videoSelector);
-
+    videoElement = document.querySelector('video');
     if (videoElement) {
         console.log("TogetherView: Video player hooked.");
         setupEventListeners();
         checkAutoJoin();
     } else {
-        // Retry every second if Netflix is still loading
         setTimeout(init, 1000);
     }
 };
 
-// Local Listeners (Netflix -> Cloud) ---
-
 function setupEventListeners() {
-    // PLAY
-    videoElement.onplay = () => {
-        if (isRemoteEvent) return; 
-        broadcast('PLAY');
-    };
-
-    // PAUSE
-    videoElement.onpause = () => {
-        if (isRemoteEvent) return;
-        broadcast('PAUSE');
-    };
-
-    // SEEK
-    videoElement.onseeked = () => {
-        if (isRemoteEvent) return;
-        broadcast('SEEK');
-    };
+    videoElement.onplay = () => { if (!isRemoteEvent) broadcast('PLAY'); };
+    videoElement.onpause = () => { if (!isRemoteEvent) broadcast('PAUSE'); };
+    videoElement.onseeked = () => { if (!isRemoteEvent) broadcast('SEEK'); };
 }
 
 function broadcast(action) {
     chrome.runtime.sendMessage({
         type: 'TO_SERVER',
         action: action,
-        time: videoElement.currentTime // Always sync the exact timestamp
+        time: videoElement.currentTime
     });
 }
 
