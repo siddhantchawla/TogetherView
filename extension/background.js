@@ -9,6 +9,7 @@ let session = {
   isConnected: false
 };
 let isHost = false
+let myUserId = "user-" + Math.random().toString(36).substring(7);
 
 // 1. THE HANDSHAKE: Connect to Azure Web PubSub via your Azure Function
 const connectToAzure = async (roomID) => {
@@ -21,7 +22,7 @@ const connectToAzure = async (roomID) => {
 
     // Handshake with your local Azure Function
     // NOTE: Update this URL when you deploy your Function to the cloud
-    const response = await fetch(`https://7071-firebase-netflixparty-1773435758580.cluster-52r6vzs3ujeoctkkxpjif3x34a.cloudworkstations.dev/api/negotiate?room=${roomID}`);
+    const response = await fetch(`https://7071-firebase-netflixparty-1773435758580.cluster-52r6vzs3ujeoctkkxpjif3x34a.cloudworkstations.dev/api/negotiate?roomroom=${roomID}&userId=${myUserId}`);
     const { url } = await response.json();
 
     // Open WebSocket with the PubSub Sub-protocol
@@ -43,13 +44,22 @@ const connectToAzure = async (roomID) => {
 
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
-      console.log("TogetherView [Remote]: Received from Azure:", message);
+      console.log("TogetherView: Message from Azure:", message);
+      
+      // Filter for messages coming from other users
+      if (message.type === 'message' && message.data) {
+        const { action, time } = message.data;
+        console.log(`TogetherView: [Signal Received] ${action} at ${time}`);
+        const senderId = message.fromUserId;
 
-      const { action, time } = message.data;
-      console.log(`TogetherView: [Signal Received] ${action} at ${time}`);
+        if (senderId === myUserId) {
+          console.log("TogetherView: Ignoring self-echo.");
+          return;
+        }
         
-      // Relay the signal to the Netflix Content Script
-      sendToTab(`SYNC_${action}`, time);
+        // Relay the signal to the Netflix Content Script
+        sendToTab(`SYNC_${action}`, time);
+      }
     };
 
     socket.onclose = () => {
@@ -69,9 +79,7 @@ const connectToAzure = async (roomID) => {
 
 // 2. MESSAGE ROUTER: Handles communication from Popup and Content Script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-
-  console.log("TogetherView [Local]: Received from Content Script:", message.type, message.action);
-
+  
   // A. Triggered by Popup (Join/Create) or Content Script (Auto-Join)
   if (message.type === 'START_SESSION') {
     isHost = message.role === "HOST";
@@ -86,7 +94,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // C. Triggered by Content Script when the local Netflix player state changes
   if (message.type === 'TO_SERVER') {
-    console.log("TogetherView [Outbound]: Sending to Azure...", message.action);
     if (socket && socket.readyState === WebSocket.OPEN && session.isConnected) {
       console.log(`TogetherView: [Broadcasting] ${message.action}`);
       

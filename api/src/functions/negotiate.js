@@ -12,7 +12,7 @@ app.http('negotiate', {
         try {
             // 2. Extract Room ID and User ID from the request
             const roomID = request.query.get('room');
-            const userId = request.query.get('userId') || `user-${Math.random().toString(36).substring(7)}`;
+            const userId = request.query.get('userId');
 
             if (!roomID) {
                 return { status: 400, body: "Missing 'room' query parameter." };
