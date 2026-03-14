@@ -76,7 +76,8 @@ document.getElementById('createBtn').addEventListener('click', () => {
     const newRoom = generateRoomId();
     chrome.runtime.sendMessage({ 
         type: "START_SESSION", 
-        room: newRoom
+        room: newRoom,
+        role: "HOST"
     }, () => showActiveSession(newRoom));
 });
 
@@ -85,7 +86,8 @@ document.getElementById('joinBtn').addEventListener('click', () => {
     if (roomCode) {
         chrome.runtime.sendMessage({ 
             type: "START_SESSION", 
-            room: roomCode
+            room: roomCode,
+            role: "GUEST"
         }, () => showActiveSession(roomCode));
     } else {
         alert("Enter a Room ID first!");

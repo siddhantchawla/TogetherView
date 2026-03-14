@@ -8,6 +8,7 @@ let session = {
   room: null,
   isConnected: false
 };
+let isHost = false
 
 // 1. THE HANDSHAKE: Connect to Azure Web PubSub via your Azure Function
 const connectToAzure = async (roomID) => {
@@ -73,13 +74,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   // A. Triggered by Popup (Join/Create) or Content Script (Auto-Join)
   if (message.type === 'START_SESSION') {
+    isHost = message.role === "HOST";
     connectToAzure(message.room);
     sendResponse({ status: "success", room: message.room });
   }
 
   // B. Triggered by Popup to refresh its UI state
   if (message.type === 'GET_SESSION') {
-    sendResponse(session);
+    sendResponse({...session, isHost: isHost});
   }
 
   // C. Triggered by Content Script when the local Netflix player state changes
