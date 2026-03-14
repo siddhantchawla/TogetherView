@@ -20,7 +20,7 @@ const connectToAzure = async (roomID) => {
 
     // Handshake with your local Azure Function
     // NOTE: Update this URL when you deploy your Function to the cloud
-    const response = await fetch(`http://localhost:7071/api/negotiate?room=${roomID}`);
+    const response = await fetch(`https://7071-firebase-netflixparty-1773435758580.cluster-52r6vzs3ujeoctkkxpjif3x34a.cloudworkstations.dev/api/negotiate?room=SDE_TEST/api/negotiate?room=${roomID}`);
     const { url } = await response.json();
 
     // Open WebSocket with the PubSub Sub-protocol
