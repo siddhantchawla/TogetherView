@@ -1,64 +1,104 @@
-let videoElement = null;
-let isRemoteEvent = false;
+/**
+ * TogetherView: Content Script
+ * Responsibilities: DOM Injection, Loop Prevention, Time Synchronization
+ */
 
-const checkAutoJoin = () => {
+let isRemoteEvent = false;
+let videoElement = null;
+
+// --- 1. INITIALIZATION & DOM HOOKING ---
+
+const init = () => {
+    // Netflix uses a complex player; we wait for the video element to exist
+    const videoSelector = 'video';
+    videoElement = document.querySelector(videoSelector);
+
+    if (videoElement) {
+        console.log("TogetherView: Video player hooked.");
+        setupEventListeners();
+        checkAutoJoin();
+    } else {
+        // Retry every second if Netflix is still loading
+        setTimeout(init, 1000);
+    }
+};
+
+// --- 2. LOCAL LISTENERS (Netflix -> Cloud) ---
+
+function setupEventListeners() {
+    // PLAY
+    videoElement.onplay = () => {
+        if (isRemoteEvent) return; 
+        broadcast('PLAY');
+    };
+
+    // PAUSE
+    videoElement.onpause = () => {
+        if (isRemoteEvent) return;
+        broadcast('PAUSE');
+    };
+
+    // SEEK
+    videoElement.onseeked = () => {
+        if (isRemoteEvent) return;
+        broadcast('SEEK');
+    };
+}
+
+function broadcast(action) {
+    chrome.runtime.sendMessage({
+        type: 'TO_SERVER',
+        action: action,
+        time: videoElement.currentTime // Always sync the exact timestamp
+    });
+}
+
+// --- 3. REMOTE EXECUTORS (Cloud -> Netflix) ---
+
+chrome.runtime.onMessage.addListener((message) => {
+    if (!videoElement) return;
+
+    // We set the flag to true so our local listeners ignore this change
+    isRemoteEvent = true;
+
+    const remoteTime = message.time;
+    const timeDiff = Math.abs(videoElement.currentTime - remoteTime);
+
+    if (message.type === 'SYNC_PLAY') {
+        // Only seek if the difference is significant (> 0.5s) to avoid micro-stutter
+        if (timeDiff > 0.5) videoElement.currentTime = remoteTime;
+        videoElement.play();
+    }
+
+    if (message.type === 'SYNC_PAUSE') {
+        videoElement.pause();
+        videoElement.currentTime = remoteTime; // Snap to the exact frame
+    }
+
+    if (message.type === 'SYNC_SEEK') {
+        videoElement.currentTime = remoteTime;
+    }
+
+    // Reset the flag after a short delay to allow the DOM to process the change
+    setTimeout(() => {
+        isRemoteEvent = false;
+    }, 500); 
+});
+
+// --- 4. AUTO-JOIN LOGIC ---
+
+function checkAutoJoin() {
     const urlParams = new URLSearchParams(window.location.search);
     const roomFromUrl = urlParams.get('togetherViewRoom');
 
     if (roomFromUrl) {
-        console.log("TogetherView: Auto-join link detected for room:", roomFromUrl);
-        
-        // Tell the background script to initialize the session
+        console.log("TogetherView: Auto-joining room:", roomFromUrl);
         chrome.runtime.sendMessage({ 
             type: 'START_SESSION', 
-            room: roomFromUrl,
-            role: 'GUEST' 
-        }, (response) => {
-            if (response && response.status === "success") {
-                console.log("TogetherView: Auto-joined room successfully.");
-                // Optional: Remove the param from URL to clean up the address bar
-                const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + window.location.search.replace(/([&?]togetherViewRoom=)[^&]+/, "");
-                window.history.replaceState({path: cleanUrl}, '', cleanUrl);
-            }
+            room: roomFromUrl 
         });
     }
-};
+}
 
-
-// 1. Detect Netflix video player
-const init = () => {
-    const video = document.querySelector('video');
-    if (video && video !== videoElement) {
-        videoElement = video;
-        setupListeners();
-        console.log("TogetherView: Video player hooked.");
-  }
-};
-
-// 2. Listen for Play/Pause/Seek
-const setupListeners = () => {
-    videoElement.onplay = () => notifyBackground('PLAY', videoElement.currentTime);
-    videoElement.onpause = () => notifyBackground('PAUSE', videoElement.currentTime);
-    videoElement.onseeked = () => notifyBackground('SEEK', videoElement.currentTime);
-};
-
-const notifyBackground = (action, time) => {
-    if (isRemoteEvent) return; // Prevent feedback loops from server events
-    chrome.runtime.sendMessage({ type: 'TO_SERVER', action, time });
-};
-
-// 3. Receive Sync commands FROM the server (via background.js)
-chrome.runtime.onMessage.addListener((msg) => {
-    console.log("TogetherView: [INCOMING SYNC]", msg.type, "at time:", msg.time);
-    if (!videoElement) return;
-
-    isRemoteEvent = true; 
-    if (msg.type === 'SYNC_PLAY') videoElement.play();
-    if (msg.type === 'SYNC_PAUSE') videoElement.pause();
-    if (msg.type === 'SYNC_SEEK') videoElement.currentTime = msg.time;
-  
-    setTimeout(() => { isRemoteEvent = false; }, 200);
-});
-
-setInterval(init, 2000); // Netflix loads player lazily
-checkAutoJoin();
+// Start the engine
+init();

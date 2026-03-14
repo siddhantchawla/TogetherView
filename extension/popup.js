@@ -1,84 +1,93 @@
-// Generate a random Room ID
+// popup.js
+
 const generateRoomId = () => {
     return 'TV-' + Math.random().toString(36).substr(2, 4).toUpperCase();
 };
 
-// Run immediately when popup opens
+// 1. INITIALIZE: Check if background script is already in a session
 chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
-    if (response && response.room) {
-      showActiveSession(response.room);
+    if (response && response.isConnected && response.room) {
+        showActiveSession(response.room);
     }
 });
-  
+
+// 2. UI CONTROLLER: Transitions the popup to "Connected Mode"
 function showActiveSession(roomCode) {
-    // Hide the join/create inputs
+    // Hide all entry inputs/buttons
     document.getElementById('createBtn').style.display = 'none';
     document.getElementById('roomInput').style.display = 'none';
     document.getElementById('joinBtn').style.display = 'none';
     
-    // Show the active status
     const statusText = document.getElementById('statusText');
     statusText.innerHTML = `Connected to: <strong>${roomCode}</strong>`;
     document.getElementById('dot').classList.add('connected');
     
-    // Add a "Leave" button dynamically
-    const leaveBtn = document.createElement('button');
-    leaveBtn.innerText = "Leave Party";
-    leaveBtn.style.marginTop = "10px";
-    leaveBtn.style.backgroundColor = "#333";
-    leaveBtn.onclick = () => {
-        chrome.storage.local.remove('activeSession');
-        location.reload(); // Reset the popup UI
-    };
-    document.body.appendChild(leaveBtn);
+    // Create Button Container for better layout
+    const container = document.createElement('div');
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column';
+    container.style.gap = '8px';
+    container.style.marginTop = '15px';
 
+    // INVITE BUTTON
     const copyBtn = document.createElement('button');
     copyBtn.innerText = "Copy Invite Link";
-    copyBtn.style.marginTop = "5px";
     copyBtn.onclick = () => {
         chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
             const currentUrl = tabs[0].url;
-          
-            const baseUrl = currentUrl.split('?')[0]; 
-            const videoId = currentUrl.match(/watch\/(\d+)/)?.[0] || "";
-          
-            const inviteUrl = `https://www.netflix.com/${videoId}?togetherViewRoom=${roomCode}`;
-          
-            navigator.clipboard.writeText(inviteUrl).then(() => {
-                copyBtn.innerText = "Link Copied!";
-                setTimeout(() => { copyBtn.innerText = "Copy Invite Link"; }, 2000);
-            });
+            
+            // Fix: Capture the exact /watch/12345 part
+            const watchPart = currentUrl.match(/watch\/\d+/);
+            
+            if (watchPart) {
+                const inviteUrl = `https://www.netflix.com/${watchPart[0]}?togetherViewRoom=${roomCode}`;
+                navigator.clipboard.writeText(inviteUrl).then(() => {
+                    copyBtn.innerText = "Link Copied!";
+                    copyBtn.style.backgroundColor = "#27ae60";
+                    setTimeout(() => { 
+                        copyBtn.innerText = "Copy Invite Link"; 
+                        copyBtn.style.backgroundColor = "";
+                    }, 2000);
+                });
+            } else {
+                alert("Please open a Netflix video first!");
+            }
         });
     };
-    document.body.appendChild(copyBtn);
+
+    // LEAVE BUTTON
+    const leaveBtn = document.createElement('button');
+    leaveBtn.innerText = "Leave Party";
+    leaveBtn.style.backgroundColor = "#333";
+    leaveBtn.onclick = () => {
+        // Tell background to kill the socket
+        chrome.runtime.sendMessage({ type: 'LEAVE_SESSION' }, () => {
+            window.location.reload(); // Refresh popup to show join/create again
+        });
+    };
+
+    container.appendChild(copyBtn);
+    container.appendChild(leaveBtn);
+    document.body.appendChild(container);
 }
 
+// 3. ACTION LISTENERS
 document.getElementById('createBtn').addEventListener('click', () => {
     const newRoom = generateRoomId();
-    document.getElementById('roomInput').value = newRoom;
-    
     chrome.runtime.sendMessage({ 
         type: "START_SESSION", 
-        room: newRoom,
-        role: "HOST" 
-    });
-
-    updateUI(newRoom, "Hosting");
+        room: newRoom
+    }, () => showActiveSession(newRoom));
 });
 
 document.getElementById('joinBtn').addEventListener('click', () => {
-    const roomCode = document.getElementById('roomInput').value;
+    const roomCode = document.getElementById('roomInput').value.trim().toUpperCase();
     if (roomCode) {
         chrome.runtime.sendMessage({ 
             type: "START_SESSION", 
-            room: roomCode,
-            role: "GUEST" 
-        });
-        updateUI(roomCode, "Joined");
+            room: roomCode
+        }, () => showActiveSession(roomCode));
+    } else {
+        alert("Enter a Room ID first!");
     }
 });
-
-function updateUI(code, status) {
-    document.getElementById('statusText').innerText = `${status}: ${code}`;
-    document.getElementById('dot').classList.add('connected');
-}
