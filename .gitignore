@@ -1,0 +1,20 @@
+# --- OS & IDE Files ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+
+# --- Node.js / Dependencies ---
+node_modules/
+package-lock.json
+
+# --- Azure Functions Backend (CRITICAL) ---
+api/local.settings.json
+api/bin/
+api/obj/
+api/.funcignore
+
+# --- Environment Secrets ---
+.env
+.env.local

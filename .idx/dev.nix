@@ -18,6 +18,7 @@
     extensions = [
       # "vscodevim.vim"
       "google.gemini-cli-vscode-ide-companion"
+      "esbenp.prettier-vscode"
     ];
     # Enable previews
     previews = {
