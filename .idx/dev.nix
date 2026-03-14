@@ -3,13 +3,13 @@
 { pkgs, ... }: {
   # Which nixpkgs channel to use.
   channel = "stable-24.05"; # or "unstable"
+  env = {
+    DOTNET_SYSTEM_GLOBALIZATION_INVARIANT = "1";
+  };
   # Use https://search.nixos.org/packages to find packages
   packages = [
-    # pkgs.go
-    # pkgs.python311
-    # pkgs.python311Packages.pip
-    # pkgs.nodejs_20
-    # pkgs.nodePackages.nodemon
+    pkgs.nodejs_20
+    pkgs.azure-functions-core-tools
   ];
   # Sets environment variables in the workspace
   env = {};
