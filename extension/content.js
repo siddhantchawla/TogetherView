@@ -1,92 +1,22 @@
 /**
  * TogetherView: Content Script
  *
- * KEY FIX: All video/player manipulation is done via injected <script> tags
- * that run in the PAGE context (trusted by Netflix DRM), NOT the isolated
- * content script context (which triggers M7375).
- *
- * Netflix internal API is used for seek (player.seek(ms)) because direct
- * video.currentTime manipulation also triggers M7375.
+ * Injects page-context.js into the Netflix page via script.src
+ * (chrome-extension:// URL) to comply with Netflix's CSP.
+ * All Netflix player API calls happen in page-context.js.
+ * Communication between this file and page-context.js uses window.postMessage.
  */
 
 let isRemoteEvent = false;
-const SYNC_THRESHOLD = 2.0; // seconds
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HELPER: Inject a script into the Netflix page context (trusted by DRM)
+// 1. INJECT PAGE-CONTEXT SCRIPT (CSP-compliant: src= not inline)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function injectPageScript(code) {
-    const script = document.createElement('script');
-    script.textContent = code;
-    (document.head || document.documentElement).appendChild(script);
-    script.remove();
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 1. INJECT NETFLIX API CONTROLLER INTO PAGE CONTEXT
-//    Runs once on load. Exposes a postMessage-based interface so the
-//    content script can command the Netflix player safely.
-// ─────────────────────────────────────────────────────────────────────────────
-
-injectPageScript(`
-    (function() {
-        if (window.__togetherViewInjected) return;
-        window.__togetherViewInjected = true;
-
-        function getPlayer() {
-            try {
-                const videoPlayer = netflix.appContext.state.playerApp.getAPI().videoPlayer;
-                const sessionId = videoPlayer.getAllPlayerSessionIds()[0];
-                return videoPlayer.getVideoPlayerBySessionId(sessionId);
-            } catch(e) {
-                console.warn('TogetherView: Netflix player API not ready.', e);
-                return null;
-            }
-        }
-
-        window.addEventListener('message', function(event) {
-            if (event.source !== window) return;
-            if (!event.data || event.data.source !== '__togetherView_cmd') return;
-
-            const { action, time } = event.data; // time is in SECONDS
-            const player = getPlayer();
-            if (!player) return;
-
-            const timeMs = Math.round(time * 1000); // Netflix API uses milliseconds
-            const currentMs = player.getCurrentTime();
-            const diffSec = Math.abs(currentMs / 1000 - time);
-            const SYNC_THRESHOLD = ${SYNC_THRESHOLD};
-
-            if (action === 'SYNC_PAUSE') {
-                player.pause();
-                if (diffSec > SYNC_THRESHOLD) player.seek(timeMs);
-            }
-            else if (action === 'SYNC_PLAY') {
-                if (diffSec > SYNC_THRESHOLD) player.seek(timeMs);
-                player.play();
-            }
-            else if (action === 'SYNC_SEEK') {
-                player.seek(timeMs);
-            }
-        });
-
-        // Listen for status requests (host responding to new guest sync requests)
-        window.addEventListener('message', function(event) {
-            if (event.source !== window) return;
-            if (!event.data || event.data.source !== '__togetherView_getStatus') return;
-
-            const player = getPlayer();
-            if (!player) return;
-
-            window.postMessage({
-                source: '__togetherView_status',
-                paused: player.isPaused(),
-                time: player.getCurrentTime() / 1000  // convert ms -> seconds
-            }, window.location.origin);
-        });
-    })();
-`);
+const script = document.createElement('script');
+script.src = chrome.runtime.getURL('page-context.js');
+script.onload = () => script.remove(); // Clean up the tag after load
+(document.head || document.documentElement).appendChild(script);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. ROLE CHECK
@@ -111,7 +41,7 @@ chrome.runtime.onMessage.addListener((message) => {
         if (isHost) {
             console.log("TogetherView: Responding to sync request...");
             // Ask the page-context controller for current player status
-            window.postMessage({ source: '__togetherView_getStatus' }, window.location.origin);
+            window.postMessage({ source: '__togetherView_getStatus' }, '*');
         }
         return;
     }
@@ -131,7 +61,7 @@ chrome.runtime.onMessage.addListener((message) => {
         source: '__togetherView_cmd',
         action: message.type,   // 'SYNC_PLAY', 'SYNC_PAUSE', 'SYNC_SEEK'
         time: message.time      // in seconds
-    }, window.location.origin);
+    }, '*');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
