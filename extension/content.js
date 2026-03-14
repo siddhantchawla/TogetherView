@@ -24,7 +24,7 @@ function getNetflixPlayer() {
 // Logic gate and Remote Executors (Cloud -> Netflix)
 chrome.runtime.onMessage.addListener((message) => {
     if (!videoElement) return;
-    const player = getNetflixPlayer();
+    // const player = getNetflixPlayer();
 
     // HANDSHAKE: Only the Host responds to sync requests
     if (message.type === 'SYNC_GET_STATUS') {
@@ -41,10 +41,10 @@ chrome.runtime.onMessage.addListener((message) => {
     const timeDiff = Math.abs(videoElement.currentTime - remoteTime);
 
     if (message.type === 'SYNC_PLAY') {
-        if (player && timeDiff > 1.5) player.seek(remoteTime * 1000);
+        if (timeDiff > 1.5) videoElement.currentTime = remoteTime;
         videoElement.play();
     } else if (message.type === 'SYNC_PAUSE' || message.type === 'SYNC_SEEK') {
-        if (player) player.seek(remoteTime * 1000);
+        videoElement.currentTime = remoteTime;
         if (message.type === 'SYNC_PAUSE') videoElement.pause();
     }
 

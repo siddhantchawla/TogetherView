@@ -43,15 +43,13 @@ const connectToAzure = async (roomID) => {
 
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
-      
-      // Filter for messages coming from other users in the same group
-      if (message.type === 'message' && message.from === 'group') {
-        const { action, time } = message.data;
-        console.log(`TogetherView: [Signal Received] ${action} at ${time}`);
+      console.log("TogetherView [Remote]: Received from Azure:", message);
+
+      const { action, time } = message.data;
+      console.log(`TogetherView: [Signal Received] ${action} at ${time}`);
         
-        // Relay the signal to the Netflix Content Script
-        sendToTab(`SYNC_${action}`, time);
-      }
+      // Relay the signal to the Netflix Content Script
+      sendToTab(`SYNC_${action}`, time);
     };
 
     socket.onclose = () => {
@@ -71,7 +69,9 @@ const connectToAzure = async (roomID) => {
 
 // 2. MESSAGE ROUTER: Handles communication from Popup and Content Script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  
+
+  console.log("TogetherView [Local]: Received from Content Script:", message.type, message.action);
+
   // A. Triggered by Popup (Join/Create) or Content Script (Auto-Join)
   if (message.type === 'START_SESSION') {
     isHost = message.role === "HOST";
@@ -86,6 +86,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // C. Triggered by Content Script when the local Netflix player state changes
   if (message.type === 'TO_SERVER') {
+    console.log("TogetherView [Outbound]: Sending to Azure...", message.action);
     if (socket && socket.readyState === WebSocket.OPEN && session.isConnected) {
       console.log(`TogetherView: [Broadcasting] ${message.action}`);
       
