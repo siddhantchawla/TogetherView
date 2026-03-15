@@ -1,16 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="popup.css">
+</head>
 <body>
-    <h2>TogetherView</h2>
+    <div id="app" data-state="loading">
 
-    <div id="notOnWatch" style="display:none; text-align:center; color:#aaa; font-size:0.85rem; margin: 12px 0;">
-        Open a Netflix video to start a party.
+        <!-- HEADER (always visible) -->
+        <header>
+            <div class="logo">
+                <span class="logo-icon">▶</span>
+                <span class="logo-text">TogetherView</span>
+            </div>
+            <div class="live-badge" id="liveBadge">
+                <span class="live-dot"></span>
+                <span class="live-label">LIVE</span>
+                <span class="live-room" id="liveRoom"></span>
+            </div>
+        </header>
+
+        <div class="divider"></div>
+
+        <!-- STATE: not-on-watch -->
+        <div class="view" id="viewNotOnWatch">
+            <div class="empty-state">
+                <div class="empty-icon">🎬</div>
+                <p class="empty-title">Open a Netflix video</p>
+                <p class="empty-subtitle">to start a watch party.</p>
+            </div>
+        </div>
+
+        <!-- STATE: idle -->
+        <div class="view" id="viewIdle">
+            <div class="now-watching">
+                <p class="now-watching-label">Now Watching</p>
+                <p class="now-watching-title" id="showTitle">—</p>
+            </div>
+            <button class="btn btn-primary" id="createBtn">
+                <span class="btn-icon">🎉</span> Start Party
+            </button>
+        </div>
+
+        <!-- STATE: active -->
+        <div class="view" id="viewActive">
+            <div class="now-watching">
+                <p class="now-watching-label">Now Watching</p>
+                <p class="now-watching-title" id="showTitleActive">—</p>
+            </div>
+            <button class="btn btn-primary" id="copyBtn">
+                <span class="btn-icon">🔗</span> Copy Invite Link
+            </button>
+            <button class="btn btn-ghost" id="leaveBtn">Leave Party</button>
+        </div>
+
+        <!-- STATE: ended -->
+        <div class="view" id="viewEnded">
+            <div class="ended-state">
+                <div class="ended-icon">⚠️</div>
+                <p class="ended-message" id="endedMessage">The host ended the party.</p>
+            </div>
+            <button class="btn btn-primary" id="newPartyBtn">
+                <span class="btn-icon">🎉</span> Start New Party
+            </button>
+        </div>
+
+        <!-- STATE: loading -->
+        <div class="view" id="viewLoading">
+            <div class="empty-state">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+
     </div>
-
-    <button id="createBtn" style="display:none;">Create Party</button>
-
-    <div style="margin-top: 15px; font-size: 0.8rem; color: #aaa;">
-        <span id="dot" class="status-dot"></span>
-        <span id="statusText">Not Connected</span>
-    </div>
-
     <script src="popup.js"></script>
 </body>
+</html>

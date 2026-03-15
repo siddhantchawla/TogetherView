@@ -1,119 +1,74 @@
 // popup.js
 
-const generateRoomId = () => {
-    return 'TV-' + Math.random().toString(36).substr(2, 4).toUpperCase();
+const app = document.getElementById('app');
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+
+const setState = (state) => app.setAttribute('data-state', state);
+
+const getTabInfo = (callback) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        callback(tabs[0] || {});
+    });
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 1. INITIALIZE
-// ─────────────────────────────────────────────────────────────────────────────
+const parseShowTitle = (tabTitle) => {
+    // Netflix tab titles are like "Show Name - Netflix" or "Episode Title | Show Name | Netflix"
+    if (!tabTitle) return '—';
+    const cleaned = tabTitle.replace(/\s*[-|]\s*Netflix\s*$/i, '').trim();
+    return cleaned || '—';
+};
+
+const isWatchPage = (url) => /netflix\.com\/watch\/\d+/.test(url || '');
+
+const generateRoomId = () => 'TV-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+
+// ─── INIT ──────────────────────────────────────────────────────────────────────
+
+setState('loading');
 
 chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
     if (response && response.isConnected && response.room) {
-        // Already in a session — skip URL check, show active UI
-        showActiveSession(response.room);
+        showActiveState(response.room);
         return;
     }
 
-    // Not in a session — check if we're on a Netflix watch page
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const url = tabs[0]?.url || '';
-        const isOnWatchPage = /netflix\.com\/watch\/\d+/.test(url);
-
-        if (isOnWatchPage) {
-            document.getElementById('createBtn').style.display = 'block';
+    getTabInfo((tab) => {
+        if (isWatchPage(tab.url)) {
+            const title = parseShowTitle(tab.title);
+            document.getElementById('showTitle').textContent = title;
+            setState('idle');
         } else {
-            document.getElementById('notOnWatch').style.display = 'block';
+            setState('not-on-watch');
         }
     });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. UI CONTROLLER: Transitions the popup to "Connected Mode"
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── STATE: ACTIVE ─────────────────────────────────────────────────────────────
 
-function showActiveSession(roomCode) {
-    // Hide idle-state elements
-    document.getElementById('createBtn').style.display = 'none';
-    document.getElementById('notOnWatch').style.display = 'none';
+function showActiveState(roomCode) {
+    // Update live badge
+    document.getElementById('liveRoom').textContent = `· ${roomCode}`;
+    document.getElementById('liveBadge').classList.add('visible');
 
-    const statusText = document.getElementById('statusText');
-    statusText.innerHTML = `Connected to: <strong>${roomCode}</strong>`;
-    document.getElementById('dot').classList.add('connected');
+    // Update now watching title
+    getTabInfo((tab) => {
+        const title = parseShowTitle(tab.title);
+        document.getElementById('showTitleActive').textContent = title;
+    });
 
-    // Button container
-    const container = document.createElement('div');
-    container.className = 'session-container';
-    container.style.display = 'flex';
-    container.style.flexDirection = 'column';
-    container.style.gap = '8px';
-    container.style.marginTop = '15px';
-
-    // COPY INVITE LINK BUTTON
-    const copyBtn = document.createElement('button');
-    copyBtn.innerText = 'Copy Invite Link';
-    copyBtn.onclick = () => {
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            const currentUrl = tabs[0]?.url || '';
-            const watchPart = currentUrl.match(/watch\/\d+/);
-
-            if (watchPart) {
-                const inviteUrl = `https://www.netflix.com/${watchPart[0]}?togetherViewRoom=${roomCode}`;
-                navigator.clipboard.writeText(inviteUrl).then(() => {
-                    copyBtn.innerText = 'Link Copied!';
-                    copyBtn.style.backgroundColor = '#27ae60';
-                    setTimeout(() => {
-                        copyBtn.innerText = 'Copy Invite Link';
-                        copyBtn.style.backgroundColor = '';
-                    }, 2000);
-                });
-            } else {
-                alert('Please navigate to the Netflix video first!');
-            }
-        });
-    };
-
-    // LEAVE BUTTON
-    const leaveBtn = document.createElement('button');
-    leaveBtn.innerText = 'Leave Party';
-    leaveBtn.style.backgroundColor = '#333';
-    leaveBtn.onclick = () => {
-        chrome.runtime.sendMessage({ type: 'LEAVE_SESSION' }, () => {
-            window.location.reload();
-        });
-    };
-
-    container.appendChild(copyBtn);
-    container.appendChild(leaveBtn);
-    document.body.appendChild(container);
+    setState('active');
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. SESSION ENDED HANDLER: Notified when host leaves or party is dead
-// ─────────────────────────────────────────────────────────────────────────────
-
-chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'SESSION_ENDED') {
-        showEndedState('The host ended the party.');
-    }
-});
+// ─── STATE: ENDED ──────────────────────────────────────────────────────────────
 
 function showEndedState(reason) {
-    document.getElementById('createBtn').style.display = 'none';
-    document.getElementById('notOnWatch').style.display = 'none';
-    document.getElementById('dot').classList.remove('connected');
-    document.getElementById('statusText').innerText = 'Not Connected';
-    const existingContainer = document.querySelector('.session-container');
-    if (existingContainer) existingContainer.remove();
-    const msg = document.createElement('div');
-    msg.style.cssText = 'text-align:center; color:#e74c3c; font-size:0.8rem; margin-top:12px;';
-    msg.innerText = reason;
-    document.body.appendChild(msg);
+    document.getElementById('liveBadge').classList.remove('visible');
+    document.getElementById('endedMessage').textContent = reason || 'The host ended the party.';
+    setState('ended');
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 4. CREATE PARTY
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── BUTTON: Start Party ───────────────────────────────────────────────────────
 
 document.getElementById('createBtn').addEventListener('click', () => {
     const newRoom = generateRoomId();
@@ -121,5 +76,72 @@ document.getElementById('createBtn').addEventListener('click', () => {
         type: 'START_SESSION',
         room: newRoom,
         role: 'HOST'
-    }, () => showActiveSession(newRoom));
+    }, () => showActiveState(newRoom));
+});
+
+// ─── BUTTON: Start New Party (from ended state) ────────────────────────────────
+
+document.getElementById('newPartyBtn').addEventListener('click', () => {
+    getTabInfo((tab) => {
+        if (isWatchPage(tab.url)) {
+            const newRoom = generateRoomId();
+            chrome.runtime.sendMessage({
+                type: 'START_SESSION',
+                room: newRoom,
+                role: 'HOST'
+            }, () => showActiveState(newRoom));
+        } else {
+            setState('not-on-watch');
+        }
+    });
+});
+
+// ─── BUTTON: Copy Invite Link ──────────────────────────────────────────────────
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+    const roomCode = document.getElementById('liveRoom').textContent.replace('· ', '').trim();
+
+    getTabInfo((tab) => {
+        const watchPart = (tab.url || '').match(/watch\/\d+/);
+        if (watchPart) {
+            const inviteUrl = `https://www.netflix.com/${watchPart[0]}?togetherViewRoom=${roomCode}`;
+            navigator.clipboard.writeText(inviteUrl).then(() => {
+                const btn = document.getElementById('copyBtn');
+                btn.textContent = '✓  Link Copied!';
+                btn.classList.add('btn-success');
+                setTimeout(() => {
+                    btn.innerHTML = '<span class="btn-icon">🔗</span> Copy Invite Link';
+                    btn.classList.remove('btn-success');
+                }, 2000);
+            });
+        }
+    });
+});
+
+// ─── BUTTON: Leave Party ───────────────────────────────────────────────────────
+
+document.getElementById('leaveBtn').addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'LEAVE_SESSION' }, () => {
+        document.getElementById('liveBadge').classList.remove('visible');
+        getTabInfo((tab) => {
+            if (isWatchPage(tab.url)) {
+                const title = parseShowTitle(tab.title);
+                document.getElementById('showTitle').textContent = title;
+                setState('idle');
+            } else {
+                setState('not-on-watch');
+            }
+        });
+    });
+});
+
+// ─── RUNTIME MESSAGES (from background.js) ────────────────────────────────────
+
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'SESSION_ENDED') {
+        showEndedState('The host ended the party.');
+    }
+    if (message.type === 'NOTIFY_NO_HOST') {
+        showEndedState('This party has ended. No host found.');
+    }
 });
