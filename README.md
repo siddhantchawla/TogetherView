@@ -1,6 +1,6 @@
 # TogetherView
 
-### *Watch Netflix together, perfectly in sync.*
+### _Watch Netflix together, perfectly in sync._
 
 ![Chrome Extension MV3](https://img.shields.io/badge/Chrome%20Extension-MV3-4285F4?logo=googlechrome&logoColor=white)
 ![Azure Web PubSub](https://img.shields.io/badge/Azure-Web%20PubSub-0078D4?logo=microsoftazure&logoColor=white)
@@ -20,7 +20,7 @@
 
 ## 🔧 How It Works
 
-1. The **host** clicks *Start Party* in the popup — a room is created and an invite link is generated.
+1. The **host** clicks _Start Party_ in the popup — a room is created and an invite link is generated.
 2. The host shares the link with friends.
 3. Each **guest** opens the link on their own Netflix tab — the extension auto-joins the room.
 4. The guest sends a `GET_STATUS` broadcast; the host responds with the current playback position.
@@ -43,11 +43,11 @@
 
 ## 🛠 Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Extension | Chrome MV3, Vanilla JS |
-| Real-time relay | Azure Web PubSub |
-| Backend | Azure Functions (Node.js) |
+| Layer                 | Technology                                                   |
+| --------------------- | ------------------------------------------------------------ |
+| Extension             | Chrome MV3, Vanilla JS                                       |
+| Real-time relay       | Azure Web PubSub                                             |
+| Backend               | Azure Functions (Node.js)                                    |
 | Netflix player access | `window.netflix` player API via injected page-context script |
 
 ---
@@ -98,7 +98,7 @@ The negotiate endpoint URL in `background.js` must point to your running Azure F
 ```javascript
 // extension/background.js
 const response = await fetch(
-  `https://<your-function-url>/api/negotiate?room=${roomID}&userId=${myUserId}`
+  `https://<your-function-url>/api/negotiate?room=${roomID}&userId=${myUserId}`,
 );
 ```
 

@@ -1,70 +1,70 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <link rel="stylesheet" href="popup.css">
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
     <div id="app" data-state="loading">
-
-        <!-- HEADER (always visible) -->
-        <header>
-            <div class="logo">
-                <span class="logo-icon">▶</span>
-                <span class="logo-text">TogetherView</span>
-            </div>
-            <div class="live-badge" id="liveBadge">
-                <span class="live-dot"></span>
-                <span class="live-label">LIVE</span>
-                <span class="live-room" id="liveRoom"></span>
-            </div>
-        </header>
-
-        <div class="divider"></div>
-
-        <!-- STATE: not-on-watch -->
-        <div class="view" id="viewNotOnWatch">
-            <div class="empty-state">
-                <div class="empty-icon">🎬</div>
-                <p class="empty-title">Open a Netflix video</p>
-                <p class="empty-subtitle">to start a watch party.</p>
-            </div>
+      <!-- HEADER (always visible) -->
+      <header>
+        <div class="logo">
+          <span class="logo-icon">▶</span>
+          <span class="logo-text">TogetherView</span>
         </div>
-
-        <!-- STATE: idle -->
-        <div class="view" id="viewIdle">
-            <button class="btn btn-primary" id="createBtn">
-                <span class="btn-icon">🎉</span> Start Party
-            </button>
+        <div class="live-badge" id="liveBadge">
+          <span class="live-dot"></span>
+          <span class="live-label">LIVE</span>
+          <span class="live-room" id="liveRoom"></span>
         </div>
+      </header>
 
-        <!-- STATE: active -->
-        <div class="view" id="viewActive">
-            <button class="btn btn-primary" id="copyBtn">
-                <span class="btn-icon">🔗</span> Copy Invite Link
-            </button>
-            <button class="btn btn-ghost" id="leaveBtn">Leave Party</button>
+      <div class="divider"></div>
+
+      <!-- STATE: not-on-watch -->
+      <div class="view" id="viewNotOnWatch">
+        <div class="empty-state">
+          <div class="empty-icon">🎬</div>
+          <p class="empty-title">Open a Netflix video</p>
+          <p class="empty-subtitle">to start a watch party.</p>
         </div>
+      </div>
 
-        <!-- STATE: ended -->
-        <div class="view" id="viewEnded">
-            <div class="ended-state">
-                <div class="ended-icon">⚠️</div>
-                <p class="ended-message" id="endedMessage">The host ended the party.</p>
-            </div>
-            <button class="btn btn-primary" id="newPartyBtn">
-                <span class="btn-icon">🎉</span> Start New Party
-            </button>
+      <!-- STATE: idle -->
+      <div class="view" id="viewIdle">
+        <button class="btn btn-primary" id="createBtn">
+          <span class="btn-icon">🎉</span> Start Party
+        </button>
+      </div>
+
+      <!-- STATE: active -->
+      <div class="view" id="viewActive">
+        <button class="btn btn-primary" id="copyBtn">
+          <span class="btn-icon">🔗</span> Copy Invite Link
+        </button>
+        <button class="btn btn-ghost" id="leaveBtn">Leave Party</button>
+      </div>
+
+      <!-- STATE: ended -->
+      <div class="view" id="viewEnded">
+        <div class="ended-state">
+          <div class="ended-icon">⚠️</div>
+          <p class="ended-message" id="endedMessage">
+            The host ended the party.
+          </p>
         </div>
+        <button class="btn btn-primary" id="newPartyBtn">
+          <span class="btn-icon">🎉</span> Start New Party
+        </button>
+      </div>
 
-        <!-- STATE: loading -->
-        <div class="view" id="viewLoading">
-            <div class="empty-state">
-                <div class="loading-spinner"></div>
-            </div>
+      <!-- STATE: loading -->
+      <div class="view" id="viewLoading">
+        <div class="empty-state">
+          <div class="loading-spinner"></div>
         </div>
-
+      </div>
     </div>
     <script src="popup.js"></script>
-</body>
+  </body>
 </html>
