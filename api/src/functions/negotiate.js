@@ -1,21 +1,34 @@
 const { app } = require("@azure/functions");
 const { WebPubSubServiceClient } = require("@azure/web-pubsub");
 
-// 1. Initialize the Service Client using your Connection String from local.settings.json
 const connectionString = process.env.WebPubSubConnectionString;
 const hubName = "TogetherViewHub";
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
 app.http("negotiate", {
-  methods: ["GET"],
-  authLevel: "anonymous", // For MVP, we allow anonymous access
+  methods: ["GET", "OPTIONS"],
+  authLevel: "anonymous",
   handler: async (request, context) => {
+    // Handle CORS preflight
+    if (request.method === "OPTIONS") {
+      return { status: 204, headers: CORS_HEADERS };
+    }
+
     try {
-      // 2. Extract Room ID and User ID from the request
       const roomID = request.query.get("room");
       const userId = request.query.get("userId");
 
       if (!roomID) {
-        return { status: 400, body: "Missing 'room' query parameter." };
+        return {
+          status: 400,
+          body: "Missing 'room' query parameter.",
+          headers: CORS_HEADERS,
+        };
       }
 
       const serviceClient = new WebPubSubServiceClient(
@@ -23,8 +36,6 @@ app.http("negotiate", {
         hubName,
       );
 
-      // 3. Generate a signed WebSocket URL
-      // This token grants permission to join the specific room and send messages to it
       const token = await serviceClient.getClientAccessToken({
         userId: userId,
         roles: [
@@ -37,14 +48,13 @@ app.http("negotiate", {
         `TogetherView: Negotiated access for user ${userId} to room ${roomID}`,
       );
 
-      // 4. Return the URL to the Chrome Extension
       return {
         jsonBody: { url: token.url },
-        headers: { "Access-Control-Allow-Origin": "*" }, // Ensure CORS doesn't block local testing
+        headers: CORS_HEADERS,
       };
     } catch (error) {
       context.error("Negotiation Error:", error);
-      return { status: 500, body: "Internal Server Error" };
+      return { status: 500, body: "Internal Server Error", headers: CORS_HEADERS };
     }
   },
 });
