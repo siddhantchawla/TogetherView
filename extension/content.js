@@ -250,9 +250,18 @@ const navObserver = new MutationObserver(() => {
   currentWatchUrl = newUrl;
 
   if (wasWatch && !isWatch) {
-    // Navigated away from a watch page — end the session
+    // Navigated away from a watch page entirely — end the session
     navObserver.disconnect();
     chrome.runtime.sendMessage({ type: "LEAVE_SESSION" }).catch(() => {});
+  } else if (wasWatch && isWatch) {
+    // Jumped to a different watch page — end old session, re-hook player, check for new room invite
+    chrome.runtime.sendMessage({ type: "LEAVE_SESSION" }).catch(() => {});
+    // Re-hook the video player and check for a new ?togetherViewRoom= param
+    // Delay slightly to let Netflix load the new player DOM
+    setTimeout(() => {
+      init();
+      checkAutoJoin();
+    }, 1500);
   }
 });
 
