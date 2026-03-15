@@ -239,11 +239,11 @@ init();
 // 7. SPA NAVIGATION GUARD
 // ─────────────────────────────────────────────────────────────────────────────
 
-let currentWatchUrl = window.location.href;
+let currentWatchUrl = window.location.pathname;
 
 new MutationObserver(() => {
-  const newUrl = window.location.href;
-  if (newUrl === currentWatchUrl) return; // no actual change
+  const newUrl = window.location.pathname;
+  if (newUrl === currentWatchUrl) return; // no actual change (ignores query-string-only changes)
   currentWatchUrl = newUrl;
   chrome.runtime.sendMessage({ type: "LEAVE_SESSION" }).catch(() => {});
 }).observe(document.body, { childList: true, subtree: true });
