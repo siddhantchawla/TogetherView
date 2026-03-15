@@ -126,6 +126,7 @@ const connectToAzure = async (roomID) => {
       sendToTab("SESSION_READY", 0);
     } else {
       sendToTab("SESSION_STARTED", 0);
+    }
   };
 
   socket.onmessage = (event) => {

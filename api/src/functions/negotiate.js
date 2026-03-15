@@ -54,7 +54,11 @@ app.http("negotiate", {
       };
     } catch (error) {
       context.error("Negotiation Error:", error);
-      return { status: 500, body: "Internal Server Error", headers: CORS_HEADERS };
+      return {
+        status: 500,
+        body: "Internal Server Error",
+        headers: CORS_HEADERS,
+      };
     }
   },
 });
