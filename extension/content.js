@@ -241,32 +241,9 @@ init();
 
 let currentWatchUrl = window.location.href;
 
-const navObserver = new MutationObserver(() => {
+new MutationObserver(() => {
   const newUrl = window.location.href;
   if (newUrl === currentWatchUrl) return; // no actual change
-
-  const wasWatch = isWatchUrl(currentWatchUrl);
-  const isWatch = isWatchUrl(newUrl);
   currentWatchUrl = newUrl;
-
-  if (wasWatch && !isWatch) {
-    // Navigated away from a watch page entirely — end the session
-    navObserver.disconnect();
-    chrome.runtime.sendMessage({ type: "LEAVE_SESSION" }).catch(() => {});
-  } else if (wasWatch && isWatch) {
-    // Jumped to a different watch page — end old session, re-hook player, check for new room invite
-    chrome.runtime.sendMessage({ type: "LEAVE_SESSION" }).catch(() => {});
-    // Re-hook the video player and check for a new ?togetherViewRoom= param
-    // Delay slightly to let Netflix load the new player DOM
-    setTimeout(() => {
-      init();
-      checkAutoJoin();
-    }, 1500);
-  }
-});
-
-navObserver.observe(document.body, { childList: true, subtree: true });
-
-function isWatchUrl(url) {
-  return /netflix\.com\/watch\/\d+/.test(url);
-}
+  chrome.runtime.sendMessage({ type: "LEAVE_SESSION" }).catch(() => {});
+}).observe(document.body, { childList: true, subtree: true });
