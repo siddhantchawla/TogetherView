@@ -10,6 +10,7 @@
   packages = [
     pkgs.nodejs_20
     pkgs.azure-functions-core-tools
+    pkgs.azure-cli
   ];
   # Sets environment variables in the workspace
   env = {};
