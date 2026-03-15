@@ -101,8 +101,10 @@ const connectToAzure = async (roomID) => {
       await saveState();
 
       // Notify the content script that the connection is ready.
-      // For guests joining via invite link, this triggers the initial GET_STATUS.
-      sendToTab('SESSION_READY', 0);
+      // Only guests require this to trigger GET_STATUS.
+      if (!isHost) {
+        sendToTab('SESSION_READY', 0);
+      }
     };
 
     socket.onmessage = (event) => {
