@@ -10,7 +10,8 @@
 let socket = null;
 let session = {
   room: null,
-  isConnected: false
+  isConnected: false,
+  showTitle: null
 };
 let isHost = false;
 let myUserId = null; // Loaded from storage on startup
@@ -123,7 +124,7 @@ const connectToAzure = async (roomID) => {
         if (action === 'HOST_LEFT') {
           console.log('TogetherView: Host left the party.');
           if (socket) socket.close();
-          session = { room: null, isConnected: false };
+          session = { room: null, isConnected: false, showTitle: null };
           isHost = false;
           clearState();
           sendToTab('SESSION_ENDED', 0);
@@ -202,7 +203,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Small delay to let the HOST_LEFT message send before closing
     setTimeout(() => {
       if (socket) socket.close();
-      session = { room: null, isConnected: false };
+      session = { room: null, isConnected: false, showTitle: null };
       isHost = false;
       clearState().then(() => {
         sendResponse({ status: 'disconnected' });
@@ -214,11 +215,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // E. Triggered by Content Script when no host responded after timeout
   if (message.type === 'HOST_NOT_FOUND') {
     if (socket) socket.close();
-    session = { room: null, isConnected: false };
+    session = { room: null, isConnected: false, showTitle: null };
     isHost = false;
     clearState();
     sendToTab('SESSION_ENDED', 0);
     chrome.runtime.sendMessage({ type: 'SESSION_ENDED' }).catch(() => {});
+  }
+
+  // F. Triggered by Content Script when Netflix JSON-LD metadata is read
+  if (message.type === 'SET_SHOW_TITLE') {
+    session.showTitle = message.title;
+    saveState();
+    chrome.runtime.sendMessage({ type: 'SHOW_TITLE_UPDATED', title: message.title }).catch(() => {});
+    return;
   }
 
   return true; // Keep channel open for async responses

@@ -29,14 +29,13 @@ setState('loading');
 
 chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
     if (response && response.isConnected && response.room) {
-        showActiveState(response.room);
+        showActiveState(response.room, response.showTitle);
         return;
     }
 
     getTabInfo((tab) => {
         if (isWatchPage(tab.url)) {
-            const title = parseShowTitle(tab.title);
-            document.getElementById('showTitle').textContent = title;
+            document.getElementById('showTitle').textContent = response?.showTitle || '—';
             setState('idle');
         } else {
             setState('not-on-watch');
@@ -46,16 +45,13 @@ chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
 
 // ─── STATE: ACTIVE ─────────────────────────────────────────────────────────────
 
-function showActiveState(roomCode) {
+function showActiveState(roomCode, showTitle) {
     // Update live badge
     document.getElementById('liveRoom').textContent = `· ${roomCode}`;
     document.getElementById('liveBadge').classList.add('visible');
 
     // Update now watching title
-    getTabInfo((tab) => {
-        const title = parseShowTitle(tab.title);
-        document.getElementById('showTitleActive').textContent = title;
-    });
+    document.getElementById('showTitleActive').textContent = showTitle || '—';
 
     setState('active');
 }
@@ -76,7 +72,11 @@ document.getElementById('createBtn').addEventListener('click', () => {
         type: 'START_SESSION',
         room: newRoom,
         role: 'HOST'
-    }, () => showActiveState(newRoom));
+    }, () => {
+        chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
+            showActiveState(newRoom, response?.showTitle);
+        });
+    });
 });
 
 // ─── BUTTON: Start New Party (from ended state) ────────────────────────────────
@@ -89,7 +89,11 @@ document.getElementById('newPartyBtn').addEventListener('click', () => {
                 type: 'START_SESSION',
                 room: newRoom,
                 role: 'HOST'
-            }, () => showActiveState(newRoom));
+            }, () => {
+                chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
+                    showActiveState(newRoom, response?.showTitle);
+                });
+            });
         } else {
             setState('not-on-watch');
         }
@@ -125,8 +129,7 @@ document.getElementById('leaveBtn').addEventListener('click', () => {
         document.getElementById('liveBadge').classList.remove('visible');
         getTabInfo((tab) => {
             if (isWatchPage(tab.url)) {
-                const title = parseShowTitle(tab.title);
-                document.getElementById('showTitle').textContent = title;
+                document.getElementById('showTitle').textContent = '—';
                 setState('idle');
             } else {
                 setState('not-on-watch');
@@ -143,5 +146,9 @@ chrome.runtime.onMessage.addListener((message) => {
     }
     if (message.type === 'NOTIFY_NO_HOST') {
         showEndedState('This party has ended. No host found.');
+    }
+    if (message.type === 'SHOW_TITLE_UPDATED') {
+        document.getElementById('showTitle').textContent = message.title;
+        document.getElementById('showTitleActive').textContent = message.title;
     }
 });
