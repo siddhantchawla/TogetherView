@@ -144,34 +144,6 @@ header {
     color: #666;
 }
 
-/* ─── NOW WATCHING ────────────────────────────────────────────────────────── */
-
-.now-watching {
-    background: #1a1a1a;
-    border: 1px solid #2a2a2a;
-    border-radius: 8px;
-    padding: 10px 12px;
-    margin-bottom: 4px;
-}
-
-.now-watching-label {
-    font-size: 10px;
-    font-weight: 500;
-    color: #666;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    margin-bottom: 3px;
-}
-
-.now-watching-title {
-    font-size: 13px;
-    font-weight: 500;
-    color: #ddd;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 /* ─── ENDED STATE ─────────────────────────────────────────────────────────── */
 
 .ended-state {
