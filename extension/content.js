@@ -234,3 +234,30 @@ function checkAutoJoin() {
 }
 
 init();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 7. SPA NAVIGATION GUARD
+// ─────────────────────────────────────────────────────────────────────────────
+
+let currentWatchUrl = window.location.href;
+
+const navObserver = new MutationObserver(() => {
+  const newUrl = window.location.href;
+  if (newUrl === currentWatchUrl) return; // no actual change
+
+  const wasWatch = isWatchUrl(currentWatchUrl);
+  const isWatch = isWatchUrl(newUrl);
+  currentWatchUrl = newUrl;
+
+  if (wasWatch && !isWatch) {
+    // Navigated away from a watch page — end the session
+    navObserver.disconnect();
+    chrome.runtime.sendMessage({ type: "LEAVE_SESSION" }).catch(() => {});
+  }
+});
+
+navObserver.observe(document.body, { childList: true, subtree: true });
+
+function isWatchUrl(url) {
+  return /netflix\.com\/watch\/\d+/.test(url);
+}
