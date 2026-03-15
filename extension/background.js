@@ -40,6 +40,10 @@ const connectToAzure = async (roomID) => {
       
       session.isConnected = true;
       session.room = roomID;
+
+      // Notify the content script that the connection is ready.
+      // For guests joining via invite link, this triggers the initial GET_STATUS.
+      sendToTab('SESSION_READY', 0);
     };
 
     socket.onmessage = (event) => {

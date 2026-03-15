@@ -7,7 +7,9 @@
  * Communication between this file and page-context.js uses window.postMessage.
  */
 
-let isRemoteEvent = false;
+let lastRemoteAction = null; // { action: string, time: number }
+// Tolerance (seconds) for matching a local event echo to a remote command we just applied
+const REMOTE_ACTION_TIME_THRESHOLD = 0.5;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. INJECT PAGE-CONTEXT SCRIPT (CSP-compliant: src= not inline)
@@ -46,15 +48,17 @@ chrome.runtime.onMessage.addListener((message) => {
         return;
     }
 
-    // Prevent feedback loops: ignore locally-triggered events after a remote sync
-    if (isRemoteEvent) return;
-
-    isRemoteEvent = true;
-    // 1500ms guard: prevents the local play/pause/seek listeners from
-    // re-broadcasting the event we just applied, avoiding A->B->A echo loops.
-    setTimeout(() => { isRemoteEvent = false; }, 1500);
+    // SESSION_READY: WebSocket is open and group is joined — safe to request sync
+    if (message.type === 'SESSION_READY') {
+        console.log("TogetherView: Session ready, requesting initial sync...");
+        broadcast('GET_STATUS', 0);
+        return;
+    }
 
     console.log(`TogetherView: [Remote Command] ${message.type} at ${message.time}s`);
+
+    // Record the remote action so local event listeners can skip re-broadcasting it
+    lastRemoteAction = { action: message.type, time: message.time };
 
     // Forward the command to the injected page-context Netflix controller
     window.postMessage({
@@ -91,9 +95,32 @@ const init = () => {
 function setupEventListeners(video) {
     // Use addEventListener (NOT .onplay/.onpause) to avoid overwriting
     // Netflix's own DRM event handlers on those properties.
-    video.addEventListener('play',   () => { if (!isRemoteEvent) broadcast('PLAY',  video.currentTime); });
-    video.addEventListener('pause',  () => { if (!isRemoteEvent) broadcast('PAUSE', video.currentTime); });
-    video.addEventListener('seeked', () => { if (!isRemoteEvent) broadcast('SEEK',  video.currentTime); });
+    video.addEventListener('play', () => {
+        if (lastRemoteAction?.action === 'SYNC_PLAY' &&
+            Math.abs(video.currentTime - lastRemoteAction.time) < REMOTE_ACTION_TIME_THRESHOLD) {
+            lastRemoteAction = null; // consume — this is the echo of what we just applied
+            return;
+        }
+        broadcast('PLAY', video.currentTime);
+    });
+
+    video.addEventListener('pause', () => {
+        if (lastRemoteAction?.action === 'SYNC_PAUSE' &&
+            Math.abs(video.currentTime - lastRemoteAction.time) < REMOTE_ACTION_TIME_THRESHOLD) {
+            lastRemoteAction = null;
+            return;
+        }
+        broadcast('PAUSE', video.currentTime);
+    });
+
+    video.addEventListener('seeked', () => {
+        if (lastRemoteAction?.action === 'SYNC_SEEK' &&
+            Math.abs(video.currentTime - lastRemoteAction.time) < REMOTE_ACTION_TIME_THRESHOLD) {
+            lastRemoteAction = null;
+            return;
+        }
+        broadcast('SEEK', video.currentTime);
+    });
 }
 
 function broadcast(action, time) {
@@ -119,10 +146,8 @@ function checkAutoJoin() {
             room: roomFromUrl
         });
 
-        setTimeout(() => {
-            console.log("TogetherView: Requesting initial sync...");
-            broadcast('GET_STATUS', 0);
-        }, 4000);
+        // GET_STATUS is sent when background.js fires SESSION_READY,
+        // ensuring the WebSocket is open and the group is joined first.
 
         const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
         window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
