@@ -4,65 +4,81 @@ const generateRoomId = () => {
     return 'TV-' + Math.random().toString(36).substr(2, 4).toUpperCase();
 };
 
-// 1. INITIALIZE: Check if background script is already in a session
+// ─────────────────────────────────────────────────────────────────────────────
+// 1. INITIALIZE
+// ─────────────────────────────────────────────────────────────────────────────
+
 chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
     if (response && response.isConnected && response.room) {
+        // Already in a session — skip URL check, show active UI
         showActiveSession(response.room);
+        return;
     }
+
+    // Not in a session — check if we're on a Netflix watch page
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const url = tabs[0]?.url || '';
+        const isOnWatchPage = /netflix\.com\/watch\/\d+/.test(url);
+
+        if (isOnWatchPage) {
+            document.getElementById('createBtn').style.display = 'block';
+        } else {
+            document.getElementById('notOnWatch').style.display = 'block';
+        }
+    });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
 // 2. UI CONTROLLER: Transitions the popup to "Connected Mode"
+// ─────────────────────────────────────────────────────────────────────────────
+
 function showActiveSession(roomCode) {
-    // Hide all entry inputs/buttons
+    // Hide idle-state elements
     document.getElementById('createBtn').style.display = 'none';
-    document.getElementById('roomInput').style.display = 'none';
-    document.getElementById('joinBtn').style.display = 'none';
-    
+    document.getElementById('notOnWatch').style.display = 'none';
+
     const statusText = document.getElementById('statusText');
     statusText.innerHTML = `Connected to: <strong>${roomCode}</strong>`;
     document.getElementById('dot').classList.add('connected');
-    
-    // Create Button Container for better layout
+
+    // Button container
     const container = document.createElement('div');
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
     container.style.gap = '8px';
     container.style.marginTop = '15px';
 
-    // INVITE BUTTON
+    // COPY INVITE LINK BUTTON
     const copyBtn = document.createElement('button');
-    copyBtn.innerText = "Copy Invite Link";
+    copyBtn.innerText = 'Copy Invite Link';
     copyBtn.onclick = () => {
-        chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-            const currentUrl = tabs[0].url;
-            
-            // Fix: Capture the exact /watch/12345 part
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const currentUrl = tabs[0]?.url || '';
             const watchPart = currentUrl.match(/watch\/\d+/);
-            
+
             if (watchPart) {
                 const inviteUrl = `https://www.netflix.com/${watchPart[0]}?togetherViewRoom=${roomCode}`;
                 navigator.clipboard.writeText(inviteUrl).then(() => {
-                    copyBtn.innerText = "Link Copied!";
-                    copyBtn.style.backgroundColor = "#27ae60";
-                    setTimeout(() => { 
-                        copyBtn.innerText = "Copy Invite Link"; 
-                        copyBtn.style.backgroundColor = "";
+                    copyBtn.innerText = 'Link Copied!';
+                    copyBtn.style.backgroundColor = '#27ae60';
+                    setTimeout(() => {
+                        copyBtn.innerText = 'Copy Invite Link';
+                        copyBtn.style.backgroundColor = '';
                     }, 2000);
                 });
             } else {
-                alert("Please open a Netflix video first!");
+                alert('Please navigate to the Netflix video first!');
             }
         });
     };
 
     // LEAVE BUTTON
     const leaveBtn = document.createElement('button');
-    leaveBtn.innerText = "Leave Party";
-    leaveBtn.style.backgroundColor = "#333";
+    leaveBtn.innerText = 'Leave Party';
+    leaveBtn.style.backgroundColor = '#333';
     leaveBtn.onclick = () => {
-        // Tell background to kill the socket
         chrome.runtime.sendMessage({ type: 'LEAVE_SESSION' }, () => {
-            window.location.reload(); // Refresh popup to show join/create again
+            window.location.reload();
         });
     };
 
@@ -71,25 +87,15 @@ function showActiveSession(roomCode) {
     document.body.appendChild(container);
 }
 
-// 3. ACTION LISTENERS
+// ─────────────────────────────────────────────────────────────────────────────
+// 3. CREATE PARTY
+// ─────────────────────────────────────────────────────────────────────────────
+
 document.getElementById('createBtn').addEventListener('click', () => {
     const newRoom = generateRoomId();
-    chrome.runtime.sendMessage({ 
-        type: "START_SESSION", 
+    chrome.runtime.sendMessage({
+        type: 'START_SESSION',
         room: newRoom,
-        role: "HOST"
+        role: 'HOST'
     }, () => showActiveSession(newRoom));
-});
-
-document.getElementById('joinBtn').addEventListener('click', () => {
-    const roomCode = document.getElementById('roomInput').value.trim().toUpperCase();
-    if (roomCode) {
-        chrome.runtime.sendMessage({ 
-            type: "START_SESSION", 
-            room: roomCode,
-            role: "GUEST"
-        }, () => showActiveSession(roomCode));
-    } else {
-        alert("Enter a Room ID first!");
-    }
 });
