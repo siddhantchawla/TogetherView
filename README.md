@@ -1,5 +1,9 @@
 # TogetherView
 
+<p align="center">
+  <img src="extension/icons/image-128.png" alt="TogetherView Logo" width="96" />
+</p>
+
 ### _Watch Netflix together, perfectly in sync._
 
 ![Chrome Extension MV3](https://img.shields.io/badge/Chrome%20Extension-MV3-4285F4?logo=googlechrome&logoColor=white)
@@ -136,3 +140,9 @@ TogetherView/
 ## 📄 License
 
 [MIT](LICENSE)
+
+---
+
+## 🔒 Privacy
+
+[Privacy Policy](https://siddhantchawla.github.io/TogetherView/privacy)
