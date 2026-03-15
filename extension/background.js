@@ -202,7 +202,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "GET_SESSION") {
     sendResponse({ ...session, isHost });
     // Notify the Netflix tab that the popup is open so the overlay badge hides.
-    // Since MV3 has no popup-close event, send POPUP_CLOSED after 30 seconds as
+    // Since MV3 has no popup-close event, send POPUP_CLOSED after 5 seconds as
     // a safety net so the badge always reappears. Clear any pending timer first
     // to avoid duplicate POPUP_CLOSED messages if the popup is opened again.
     if (session.isConnected) {
@@ -213,7 +213,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       popupClosedTimer = setTimeout(() => {
         popupClosedTimer = null;
         sendToTab("POPUP_CLOSED", 0);
-      }, 30000);
+      }, 5000);
     }
   }
 
