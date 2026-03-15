@@ -55,18 +55,31 @@ function showEndedState(reason) {
   setState("ended");
 }
 
+// ─── STATE: ERROR ──────────────────────────────────────────────────────────────
+
+function showErrorState(message) {
+  document.getElementById("errorMessage").textContent =
+    message || "Something went wrong. Please try again.";
+  setState("error");
+}
+
 // ─── BUTTON: Start Party ───────────────────────────────────────────────────────
 
 document.getElementById("createBtn").addEventListener("click", () => {
   const newRoom = generateRoomId();
+  setState("loading");
   chrome.runtime.sendMessage(
     {
       type: "START_SESSION",
       room: newRoom,
       role: "HOST",
     },
-    () => {
-      showActiveState(newRoom);
+    (response) => {
+      if (response && response.status === "success") {
+        showActiveState(newRoom);
+      } else {
+        showErrorState("Failed to start party. Please try again.");
+      }
     },
   );
 });
@@ -77,16 +90,33 @@ document.getElementById("newPartyBtn").addEventListener("click", () => {
   getTabInfo((tab) => {
     if (isWatchPage(tab.url)) {
       const newRoom = generateRoomId();
+      setState("loading");
       chrome.runtime.sendMessage(
         {
           type: "START_SESSION",
           room: newRoom,
           role: "HOST",
         },
-        () => {
-          showActiveState(newRoom);
+        (response) => {
+          if (response && response.status === "success") {
+            showActiveState(newRoom);
+          } else {
+            showErrorState("Failed to start party. Please try again.");
+          }
         },
       );
+    } else {
+      setState("not-on-watch");
+    }
+  });
+});
+
+// ─── BUTTON: Try Again (from error state) ─────────────────────────────────────
+
+document.getElementById("tryAgainBtn").addEventListener("click", () => {
+  getTabInfo((tab) => {
+    if (isWatchPage(tab.url)) {
+      setState("idle");
     } else {
       setState("not-on-watch");
     }

@@ -69,111 +69,110 @@ async function init() {
   }
 }
 
-init();
+// Store the init promise so connectToAzure can await it even when called early
+const initPromise = init();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. THE HANDSHAKE: Connect to Azure Web PubSub via your Azure Function
 // ─────────────────────────────────────────────────────────────────────────────
 
 const connectToAzure = async (roomID) => {
-  try {
-    // Prevent duplicate connections
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      console.log("TogetherView: Already connected, skipping reconnect.");
-      return;
-    }
-    if (socket) {
-      console.log("TogetherView: Closing existing connection...");
-      socket.close();
-    }
+  // Ensure init has completed and myUserId is set before proceeding
+  await initPromise;
 
-    // Handshake with your local Azure Function
-    // NOTE: Update this URL when you deploy your Function to the cloud
-    const response = await fetch(
-      `https://togetherviewapi.azurewebsites.net/api/negotiate?room=${roomID}&userId=${myUserId}`,
-    );
-    const { url } = await response.json();
-
-    // Open WebSocket with the PubSub Sub-protocol
-    socket = new WebSocket(url, "json.webpubsub.azure.v1");
-
-    socket.onopen = async () => {
-      console.log(`TogetherView: Connected to Cloud. Joining Room: ${roomID}`);
-
-      // Join the specific "Room" (Group) in Azure
-      socket.send(
-        JSON.stringify({
-          type: "joinGroup",
-          group: roomID,
-          ackId: 1,
-        }),
-      );
-
-      session.isConnected = true;
-      session.room = roomID;
-      await saveState();
-
-      // Notify the content script that the connection is ready.
-      // Guests receive SESSION_READY to trigger GET_STATUS.
-      // Hosts receive SESSION_STARTED to mount the overlay badge.
-      if (!isHost) {
-        sendToTab("SESSION_READY", 0);
-      } else {
-        sendToTab("SESSION_STARTED", 0);
-      }
-    };
-
-    socket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      console.log("TogetherView: Message from Azure:", message);
-
-      // Filter for messages coming from other users
-      if (message.type === "message" && message.data) {
-        const { action, time } = message.data;
-        console.log(`TogetherView: [Signal Received] ${action} at ${time}`);
-        const senderId = message.fromUserId;
-
-        if (senderId === myUserId) {
-          console.log("TogetherView: Ignoring self-echo.");
-          return;
-        }
-
-        // Handle host leaving the party
-        if (action === "HOST_LEFT") {
-          console.log("TogetherView: Host left the party.");
-          if (socket) socket.close();
-          session = { room: null, isConnected: false, showTitle: null };
-          isHost = false;
-          clearState();
-          sendToTab("SESSION_ENDED", 0);
-          chrome.runtime.sendMessage({ type: "SESSION_ENDED" }).catch(() => {});
-          return;
-        }
-
-        if (action === "GET_STATUS" && !isHost) {
-          // GET_STATUS will be only handled by the host, hence return if not the host.
-          return;
-        }
-        // Relay the signal to the Netflix Content Script
-        sendToTab(`SYNC_${action}`, time);
-      }
-    };
-
-    socket.onclose = async () => {
-      console.log("TogetherView: Cloud Disconnected.");
-      session.isConnected = false;
-      await saveState();
-    };
-
-    socket.onerror = (error) => {
-      console.error("TogetherView: WebSocket Error", error);
-    };
-  } catch (err) {
-    console.error(
-      "TogetherView: Connection failed. Ensure Azure Function is running.",
-      err,
-    );
+  // Prevent duplicate connections
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    console.log("TogetherView: Already connected, skipping reconnect.");
+    return;
   }
+  if (socket) {
+    console.log("TogetherView: Closing existing connection...");
+    socket.close();
+  }
+
+  // Handshake with your local Azure Function
+  // NOTE: Update this URL when you deploy your Function to the cloud
+  const response = await fetch(
+    `https://togetherviewapi.azurewebsites.net/api/negotiate?room=${roomID}&userId=${myUserId}`,
+  );
+  if (!response.ok) {
+    throw new Error(`Negotiate failed: ${response.status} ${response.statusText}`);
+  }
+  const { url } = await response.json();
+
+  // Open WebSocket with the PubSub Sub-protocol
+  socket = new WebSocket(url, "json.webpubsub.azure.v1");
+
+  socket.onopen = async () => {
+    console.log(`TogetherView: Connected to Cloud. Joining Room: ${roomID}`);
+
+    // Join the specific "Room" (Group) in Azure
+    socket.send(
+      JSON.stringify({
+        type: "joinGroup",
+        group: roomID,
+        ackId: 1,
+      }),
+    );
+
+    session.isConnected = true;
+    session.room = roomID;
+    await saveState();
+
+    // Notify the content script that the connection is ready.
+    // Guests receive SESSION_READY to trigger GET_STATUS.
+    // Hosts receive SESSION_STARTED to mount the overlay badge.
+    if (!isHost) {
+      sendToTab("SESSION_READY", 0);
+    } else {
+      sendToTab("SESSION_STARTED", 0);
+  };
+
+  socket.onmessage = (event) => {
+    const message = JSON.parse(event.data);
+    console.log("TogetherView: Message from Azure:", message);
+
+    // Filter for messages coming from other users
+    if (message.type === "message" && message.data) {
+      const { action, time } = message.data;
+      console.log(`TogetherView: [Signal Received] ${action} at ${time}`);
+      const senderId = message.fromUserId;
+
+      if (senderId === myUserId) {
+        console.log("TogetherView: Ignoring self-echo.");
+        return;
+      }
+
+      // Handle host leaving the party
+      if (action === "HOST_LEFT") {
+        console.log("TogetherView: Host left the party.");
+        if (socket) socket.close();
+        session = { room: null, isConnected: false, showTitle: null };
+        isHost = false;
+        clearState();
+        sendToTab("SESSION_ENDED", 0);
+        chrome.runtime.sendMessage({ type: "SESSION_ENDED" }).catch(() => {});
+        return;
+      }
+
+      if (action === "GET_STATUS" && !isHost) {
+        // GET_STATUS will be only handled by the host, hence return if not the host.
+        return;
+      }
+      // Relay the signal to the Netflix Content Script
+      sendToTab(`SYNC_${action}`, time);
+    }
+  };
+
+  socket.onclose = async () => {
+    console.log("TogetherView: Cloud Disconnected.");
+    session.isConnected = false;
+    await saveState();
+  };
+
+  socket.onerror = (error) => {
+    console.error("TogetherView: WebSocket Error", error);
+  };
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -184,9 +183,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // A. Triggered by Popup (Join/Create) or Content Script (Auto-Join)
   if (message.type === "START_SESSION") {
     isHost = message.role === "HOST";
-    connectToAzure(message.room).then(() => {
-      sendResponse({ status: "success", room: message.room });
-    });
+    connectToAzure(message.room)
+      .then(() => {
+        sendResponse({ status: "success", room: message.room });
+      })
+      .catch((err) => {
+        console.error(
+          "TogetherView: Connection failed. Ensure Azure Function is running.",
+          err,
+        );
+        sendResponse({ status: "error", error: err.message });
+      });
     return true;
   }
 
