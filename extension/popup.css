@@ -124,6 +124,7 @@ header {
 #app[data-state="idle"] #viewIdle,
 #app[data-state="active"] #viewActive,
 #app[data-state="ended"] #viewEnded,
+#app[data-state="error"] #viewError,
 #app[data-state="loading"] #viewLoading {
   display: flex;
 }
