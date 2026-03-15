@@ -113,14 +113,48 @@ window.addEventListener('message', (event) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 5. INITIALIZATION & LOCAL EVENT LISTENERS
+// 5. INITIALIZATION, LOCAL EVENT LISTENERS & SHOW TITLE EXTRACTION
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5a. SHOW TITLE EXTRACTION (reads Netflix JSON-LD metadata from the page DOM)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function extractAndSendShowTitle(retries = 5) {
+    try {
+        const ldJson = document.querySelector('script[type="application/ld+json"]');
+        if (!ldJson) {
+            if (retries > 0) setTimeout(() => extractAndSendShowTitle(retries - 1), 1000);
+            return;
+        }
+
+        const data = JSON.parse(ldJson.textContent);
+        let title = '';
+
+        if (data['@type'] === 'TVEpisode') {
+            const series = data.partOfSeries?.name || '';
+            const season = data.partOfSeason?.name || '';
+            const episode = data.name || '';
+            const shortSeason = season.replace(/Season\s+(\d+)/i, 'S$1');
+            title = [series, shortSeason, episode].filter(Boolean).join(' · ');
+        } else {
+            title = data.name || '';
+        }
+
+        if (title) {
+            chrome.runtime.sendMessage({ type: 'SET_SHOW_TITLE', title });
+        }
+    } catch (e) {
+        console.log('TogetherView: Could not extract show title.', e);
+    }
+}
 
 const init = () => {
     const videoElement = document.querySelector('video');
     if (videoElement) {
         console.log("TogetherView: Video player hooked.");
         setupEventListeners(videoElement);
+        extractAndSendShowTitle();
         checkAutoJoin();
     } else {
         setTimeout(init, 1000);
