@@ -11,9 +11,10 @@
     pkgs.nodejs_20
     pkgs.azure-functions-core-tools
     pkgs.azure-cli
+    pkgs.zip
   ];
   # Sets environment variables in the workspace
-  env = {};
+  env = { };
   idx = {
     # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
     extensions = [

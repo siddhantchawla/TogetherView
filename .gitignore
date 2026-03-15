@@ -18,3 +18,4 @@ api/.funcignore
 # --- Environment Secrets ---
 .env
 .env.local
+*.zip

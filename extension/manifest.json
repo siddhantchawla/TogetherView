@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TogetherView",
   "version": "1.0.0",
-  "description": "Watch Netflix in sync with friends.",
+  "description": "Watch Netflix in perfect sync with friends. Start a watch party in one click — no accounts, no sign-up.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": ["*://*.netflix.com/*"],
   "icons": {
