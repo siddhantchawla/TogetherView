@@ -10,6 +10,8 @@
 let lastRemoteAction = null; // { action: string, time: number }
 // Tolerance (seconds) for matching a local event echo to a remote command we just applied
 const REMOTE_ACTION_TIME_THRESHOLD = 0.5;
+// Time (ms) to wait for a host sync response before treating the room as dead
+const HOST_RESPONSE_TIMEOUT_MS = 6000;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. INJECT PAGE-CONTEXT SCRIPT (CSP-compliant: src= not inline)
@@ -25,6 +27,8 @@ script.onload = () => script.remove(); // Clean up the tag after load
 // ─────────────────────────────────────────────────────────────────────────────
 
 let isHost = false;
+let syncReceived = false;
+let hostTimeoutId = null;
 chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
     if (response) {
         isHost = response.isHost;
@@ -52,10 +56,41 @@ chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'SESSION_READY') {
         console.log("TogetherView: Session ready, requesting initial sync...");
         broadcast('GET_STATUS', 0);
+        // Start a timeout for guests: if no sync response is received, the room is dead
+        if (!isHost) {
+            syncReceived = false;
+            hostTimeoutId = setTimeout(() => {
+                if (!syncReceived) {
+                    console.log('TogetherView: No host response. Party may have ended.');
+                    chrome.runtime.sendMessage({ type: 'HOST_NOT_FOUND' });
+                }
+            }, HOST_RESPONSE_TIMEOUT_MS);
+        }
+        return;
+    }
+
+    // SESSION_ENDED: Host left or party is over — reset local state
+    if (message.type === 'SESSION_ENDED') {
+        console.log("TogetherView: Session ended.");
+        isHost = false;
+        syncReceived = false;
+        if (hostTimeoutId) {
+            clearTimeout(hostTimeoutId);
+            hostTimeoutId = null;
+        }
         return;
     }
 
     console.log(`TogetherView: [Remote Command] ${message.type} at ${message.time}s`);
+
+    // Mark sync received and clear the host timeout when a sync signal arrives
+    if (message.type === 'SYNC_PLAY' || message.type === 'SYNC_PAUSE' || message.type === 'SYNC_SEEK') {
+        syncReceived = true;
+        if (hostTimeoutId) {
+            clearTimeout(hostTimeoutId);
+            hostTimeoutId = null;
+        }
+    }
 
     // Record the remote action so local event listeners can skip re-broadcasting it
     lastRemoteAction = { action: message.type, time: message.time };

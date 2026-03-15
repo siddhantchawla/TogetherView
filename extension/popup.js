@@ -43,6 +43,7 @@ function showActiveSession(roomCode) {
 
     // Button container
     const container = document.createElement('div');
+    container.className = 'session-container';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
     container.style.gap = '8px';
@@ -88,7 +89,30 @@ function showActiveSession(roomCode) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. CREATE PARTY
+// 3. SESSION ENDED HANDLER: Notified when host leaves or party is dead
+// ─────────────────────────────────────────────────────────────────────────────
+
+chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'SESSION_ENDED') {
+        showEndedState('The host ended the party.');
+    }
+});
+
+function showEndedState(reason) {
+    document.getElementById('createBtn').style.display = 'none';
+    document.getElementById('notOnWatch').style.display = 'none';
+    document.getElementById('dot').classList.remove('connected');
+    document.getElementById('statusText').innerText = 'Not Connected';
+    const existingContainer = document.querySelector('.session-container');
+    if (existingContainer) existingContainer.remove();
+    const msg = document.createElement('div');
+    msg.style.cssText = 'text-align:center; color:#e74c3c; font-size:0.8rem; margin-top:12px;';
+    msg.innerText = reason;
+    document.body.appendChild(msg);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. CREATE PARTY
 // ─────────────────────────────────────────────────────────────────────────────
 
 document.getElementById('createBtn').addEventListener('click', () => {

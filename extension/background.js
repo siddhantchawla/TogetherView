@@ -119,6 +119,18 @@ const connectToAzure = async (roomID) => {
           return;
         }
 
+        // Handle host leaving the party
+        if (action === 'HOST_LEFT') {
+          console.log('TogetherView: Host left the party.');
+          if (socket) socket.close();
+          session = { room: null, isConnected: false };
+          isHost = false;
+          clearState();
+          sendToTab('SESSION_ENDED', 0);
+          chrome.runtime.sendMessage({ type: 'SESSION_ENDED' }).catch(() => {});
+          return;
+        }
+
         // Relay the signal to the Netflix Content Script
         sendToTab(`SYNC_${action}`, time);
       }
@@ -178,13 +190,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // D. Triggered by Popup to end the session
   if (message.type === 'LEAVE_SESSION') {
+    // Notify all guests before closing (only if host)
+    if (isHost && socket && socket.readyState === WebSocket.OPEN && session.room) {
+      socket.send(JSON.stringify({
+        type: 'sendToGroup',
+        group: session.room,
+        dataType: 'json',
+        data: { action: 'HOST_LEFT', time: 0 }
+      }));
+    }
+    // Small delay to let the HOST_LEFT message send before closing
+    setTimeout(() => {
+      if (socket) socket.close();
+      session = { room: null, isConnected: false };
+      isHost = false;
+      clearState().then(() => {
+        sendResponse({ status: 'disconnected' });
+      });
+    }, 300);
+    return true;
+  }
+
+  // E. Triggered by Content Script when no host responded after timeout
+  if (message.type === 'HOST_NOT_FOUND') {
     if (socket) socket.close();
     session = { room: null, isConnected: false };
     isHost = false;
-    clearState().then(() => {
-      sendResponse({ status: 'disconnected' });
-    });
-    return true;
+    clearState();
+    sendToTab('SESSION_ENDED', 0);
+    chrome.runtime.sendMessage({ type: 'SESSION_ENDED' }).catch(() => {});
   }
 
   return true; // Keep channel open for async responses
