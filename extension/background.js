@@ -134,6 +134,10 @@ const connectToAzure = async (roomID) => {
           return;
         }
 
+        if (action === 'GET_STATUS' && !isHost) {
+          // GET_STATUS will be only handled by the host, hence return if not the host.
+          return;
+      }
         // Relay the signal to the Netflix Content Script
         sendToTab(`SYNC_${action}`, time);
       }

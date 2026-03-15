@@ -26,15 +26,8 @@ script.onload = () => script.remove(); // Clean up the tag after load
 // 2. ROLE CHECK
 // ─────────────────────────────────────────────────────────────────────────────
 
-let isHost = false;
 let syncReceived = false;
 let hostTimeoutId = null;
-chrome.runtime.sendMessage({ type: 'GET_SESSION' }, (response) => {
-    if (response) {
-        isHost = response.isHost;
-        console.log("TogetherView: Role assigned -", isHost ? "HOST" : "GUEST");
-    }
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 3. REMOTE MESSAGE HANDLER (receives sync commands from background.js)
@@ -44,35 +37,30 @@ chrome.runtime.onMessage.addListener((message) => {
 
     // HANDSHAKE: Only the Host responds to sync requests from new guests
     if (message.type === 'SYNC_GET_STATUS') {
-        if (isHost) {
-            console.log("TogetherView: Responding to sync request...");
-            // Ask the page-context controller for current player status
-            window.postMessage({ source: '__togetherView_getStatus' }, '*');
-        }
+        console.log("TogetherView: Responding to sync request...");
+        // Ask the page-context controller for current player status
+        window.postMessage({ source: '__togetherView_getStatus' }, '*');
         return;
     }
 
-    // SESSION_READY: WebSocket is open and group is joined — safe to request sync
+    // SESSION_READY: WebSocket is open and group is joined — safe to request sync. This is only for guests
     if (message.type === 'SESSION_READY') {
         console.log("TogetherView: Session ready, requesting initial sync...");
         broadcast('GET_STATUS', 0);
         // Start a timeout for guests: if no sync response is received, the room is dead
-        if (!isHost) {
-            syncReceived = false;
-            hostTimeoutId = setTimeout(() => {
-                if (!syncReceived) {
-                    console.log('TogetherView: No host response. Party may have ended.');
-                    chrome.runtime.sendMessage({ type: 'HOST_NOT_FOUND' });
-                }
-            }, HOST_RESPONSE_TIMEOUT_MS);
-        }
+        syncReceived = false;
+        hostTimeoutId = setTimeout(() => {
+            if (!syncReceived) {
+                console.log('TogetherView: No host response. Party may have ended.');
+                chrome.runtime.sendMessage({ type: 'HOST_NOT_FOUND' });
+            }
+        }, HOST_RESPONSE_TIMEOUT_MS);
         return;
     }
 
     // SESSION_ENDED: Host left or party is over — reset local state
     if (message.type === 'SESSION_ENDED') {
         console.log("TogetherView: Session ended.");
-        isHost = false;
         syncReceived = false;
         if (hostTimeoutId) {
             clearTimeout(hostTimeoutId);
