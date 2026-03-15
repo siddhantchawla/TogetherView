@@ -302,3 +302,37 @@ function sendToTab(type, time) {
     }
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. TAB CLOSE GUARD: Broadcast HOST_LEFT if the host closes the Netflix tab
+// ─────────────────────────────────────────────────────────────────────────────
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  // Only act if host has an active session
+  if (!isHost || !session.isConnected || !session.room) return;
+
+  // Check if any Netflix tabs remain after this one was closed
+  chrome.tabs.query({ url: "*://*.netflix.com/*" }, (remainingTabs) => {
+    // If no Netflix tabs remain, the host's watch tab was just closed
+    if (remainingTabs.length === 0) {
+      console.log("TogetherView: Host closed the Netflix tab — broadcasting HOST_LEFT.");
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(
+          JSON.stringify({
+            type: "sendToGroup",
+            group: session.room,
+            dataType: "json",
+            data: { action: "HOST_LEFT", time: 0 },
+          }),
+        );
+      }
+      // Small delay to let the HOST_LEFT message send before closing
+      setTimeout(() => {
+        if (socket) socket.close();
+        session = { room: null, isConnected: false, showTitle: null };
+        isHost = false;
+        clearState();
+      }, 300);
+    }
+  });
+});
