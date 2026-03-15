@@ -15,6 +15,7 @@ let session = {
 };
 let isHost = false;
 let myUserId = null; // Loaded from storage on startup
+let popupClosedTimer = null; // Tracks the deferred POPUP_CLOSED message
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PERSISTENCE HELPERS
@@ -119,10 +120,12 @@ const connectToAzure = async (roomID) => {
     await saveState();
 
     // Notify the content script that the connection is ready.
-    // Only guests require this to trigger GET_STATUS.
+    // Guests receive SESSION_READY to trigger GET_STATUS.
+    // Hosts receive SESSION_STARTED to mount the overlay badge.
     if (!isHost) {
       sendToTab("SESSION_READY", 0);
-    }
+    } else {
+      sendToTab("SESSION_STARTED", 0);
   };
 
   socket.onmessage = (event) => {
@@ -197,6 +200,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // B. Triggered by Popup to refresh its UI state
   if (message.type === "GET_SESSION") {
     sendResponse({ ...session, isHost });
+    // Notify the Netflix tab that the popup is open so the overlay badge hides.
+    // Since MV3 has no popup-close event, send POPUP_CLOSED after 30 seconds as
+    // a safety net so the badge always reappears. Clear any pending timer first
+    // to avoid duplicate POPUP_CLOSED messages if the popup is opened again.
+    if (session.isConnected) {
+      sendToTab("POPUP_OPENED", 0);
+      if (popupClosedTimer) {
+        clearTimeout(popupClosedTimer);
+      }
+      popupClosedTimer = setTimeout(() => {
+        popupClosedTimer = null;
+        sendToTab("POPUP_CLOSED", 0);
+      }, 30000);
+    }
   }
 
   // C. Triggered by Content Script when the local Netflix player state changes
@@ -241,6 +258,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (socket) socket.close();
       session = { room: null, isConnected: false, showTitle: null };
       isHost = false;
+      sendToTab("SESSION_ENDED", 0);
       clearState().then(() => {
         sendResponse({ status: "disconnected" });
       });

@@ -20,7 +20,11 @@
   },
   "background": { "service_worker": "background.js", "type": "module" },
   "content_scripts": [
-    { "matches": ["*://*.netflix.com/*"], "js": ["content.js"] }
+    {
+      "matches": ["*://*.netflix.com/*"],
+      "js": ["content.js", "overlay.js"],
+      "css": ["overlay.css"]
+    }
   ],
   "web_accessible_resources": [
     { "resources": ["page-context.js"], "matches": ["*://*.netflix.com/*"] }
