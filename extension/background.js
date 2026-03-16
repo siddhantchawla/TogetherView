@@ -307,7 +307,7 @@ function sendToTab(type, time) {
 // 4. TAB CLOSE GUARD: Broadcast HOST_LEFT if the host closes the Netflix tab
 // ─────────────────────────────────────────────────────────────────────────────
 
-chrome.tabs.onRemoved.addListener((tabId) => {
+chrome.tabs.onRemoved.addListener((_tabId) => {
   // Only act if host has an active session
   if (!isHost || !session.isConnected || !session.room) return;
 

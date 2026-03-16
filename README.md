@@ -9,6 +9,7 @@
 ![Chrome Extension MV3](https://img.shields.io/badge/Chrome%20Extension-MV3-4285F4?logo=googlechrome&logoColor=white)
 ![Azure Web PubSub](https://img.shields.io/badge/Azure-Web%20PubSub-0078D4?logo=microsoftazure&logoColor=white)
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES2022-F7DF1E?logo=javascript&logoColor=black)
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/jenmefpfcobifgngmpclopapbjapdceo?label=Chrome%20Web%20Store&logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/togetherview/jenmefpfcobifgngmpclopapbjapdceo)
 
 ---
 
@@ -53,6 +54,31 @@
 | Real-time relay       | Azure Web PubSub                                             |
 | Backend               | Azure Functions (Node.js)                                    |
 | Netflix player access | `window.netflix` player API via injected page-context script |
+
+---
+
+## 🏪 Install from Chrome Web Store
+
+The easiest way to get TogetherView is directly from the Chrome Web Store:
+
+**[👉 Install TogetherView](https://chromewebstore.google.com/detail/togetherview/jenmefpfcobifgngmpclopapbjapdceo)**
+
+No setup required — just install, open Netflix, and start a party.
+
+---
+
+## 📦 Load from GitHub Release
+
+If you want to install a specific version or test a release build without the Chrome Web Store:
+
+1. Go to the [Releases page](https://github.com/siddhantchawla/TogetherView/releases)
+2. Download the `togetherView-vX.X.X.zip` asset from the release you want
+3. Unzip it to a folder on your machine
+4. Open `chrome://extensions` in Chrome
+5. Enable **Developer mode** (toggle in the top-right corner)
+6. Click **Load unpacked** → select the unzipped folder
+
+> **Note:** Extensions loaded this way won't auto-update. To get updates, repeat the steps above with the latest release.
 
 ---
 
@@ -112,6 +138,10 @@ const response = await fetch(
 
 ```
 TogetherView/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml               # Lint + manifest validation on PRs
+│       └── cd.yml               # Tag-based release + Chrome Web Store publish
 ├── extension/               # Chrome Extension (MV3)
 │   ├── manifest.json        # Extension manifest
 │   ├── background.js        # Service worker — state, Azure WebSocket handshake, message relay
@@ -137,6 +167,12 @@ TogetherView/
 
 ---
 
+## 🚀 Releasing
+
+See [RELEASING.md](RELEASING.md) for the release and CI/CD process.
+
+---
+
 ## 📄 License
 
 [MIT](LICENSE)
@@ -146,7 +182,3 @@ TogetherView/
 ## 🔒 Privacy
 
 [Privacy Policy](https://siddhantchawla.github.io/TogetherView/privacy)
-
----
-
-See [RELEASING.md](RELEASING.md) for the release process.
