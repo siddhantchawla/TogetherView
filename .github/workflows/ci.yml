@@ -78,7 +78,11 @@ jobs:
               "MutationObserver": "readonly",
               "Math": "readonly",
               "JSON": "readonly",
-              "console": "readonly"
+              "console": "readonly",
+              "netflix": "readonly"
+            },
+            "rules": {
+              "no-unused-vars": ["error", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }]
             }
           }
           EOF
