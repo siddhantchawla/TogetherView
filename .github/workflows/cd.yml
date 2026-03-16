@@ -66,10 +66,12 @@ jobs:
           generate_release_notes: true
 
       - name: Publish to Chrome Web Store
-        uses: mnao305/chrome-webstore-upload-action@v4.0.1
+        uses: puzzlers-labs/chrome-webstore-publish@v1
         with:
-          file-path: ${{ env.zip_name }}
-          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-          client-id: ${{ secrets.CHROME_CLIENT_ID }}
-          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
-          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          mode: publish
+          extension_id: ${{ secrets.CHROME_EXTENSION_ID }}
+          zip_file_path: ${{ env.zip_name }}
+          client_id: ${{ secrets.CHROME_CLIENT_ID }}
+          client_secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh_token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          publish_target: public
