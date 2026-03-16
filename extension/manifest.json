@@ -1,10 +1,16 @@
 {
   "manifest_version": 3,
   "name": "TogetherView",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Watch Netflix in perfect sync with friends. Start a watch party in one click — no accounts, no sign-up.",
-  "permissions": ["storage", "activeTab", "scripting"],
-  "host_permissions": ["*://*.netflix.com/*"],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://*.netflix.com/*"
+  ],
   "icons": {
     "16": "icons/image-16.png",
     "48": "icons/image-48.png",
@@ -18,15 +24,32 @@
       "128": "icons/image-128.png"
     }
   },
-  "background": { "service_worker": "background.js", "type": "module" },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "content_scripts": [
     {
-      "matches": ["*://*.netflix.com/*"],
-      "js": ["content.js", "overlay.js"],
-      "css": ["overlay.css"]
+      "matches": [
+        "*://*.netflix.com/*"
+      ],
+      "js": [
+        "content.js",
+        "overlay.js"
+      ],
+      "css": [
+        "overlay.css"
+      ]
     }
   ],
   "web_accessible_resources": [
-    { "resources": ["page-context.js"], "matches": ["*://*.netflix.com/*"] }
+    {
+      "resources": [
+        "page-context.js"
+      ],
+      "matches": [
+        "*://*.netflix.com/*"
+      ]
+    }
   ]
 }
