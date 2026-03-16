@@ -1,0 +1,75 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, release & publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Releasing version: ${VERSION}"
+
+      - name: Bump version in manifest.json
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          jq --arg v "$VERSION" '.version = $v' extension/manifest.json > /tmp/manifest.tmp
+          mv /tmp/manifest.tmp extension/manifest.json
+          echo "Updated manifest.json version to ${VERSION}"
+          cat extension/manifest.json | jq '.version'
+
+      - name: Commit and push version bump
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add extension/manifest.json
+          git commit -m "chore: bump version to ${VERSION} [skip ci]"
+          git push origin main
+
+      - name: Create extension zip
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ZIP_NAME="togetherView-v${VERSION}.zip"
+          cd extension
+          zip -r "../${ZIP_NAME}" . -x "*/.*" -x ".DS_Store" -x "__MACOSX/*"
+          cd ..
+          echo "zip_name=${ZIP_NAME}" >> "$GITHUB_ENV"
+          echo "Created ${ZIP_NAME}"
+          ls -lh "${ZIP_NAME}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: TogetherView v${{ steps.version.outputs.version }}
+          files: ${{ env.zip_name }}
+          generate_release_notes: true
+
+      - name: Publish to Chrome Web Store
+        uses: mnao305/chrome-webstore-upload-action@v4.0.1
+        with:
+          file-path: ${{ env.zip_name }}
+          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}

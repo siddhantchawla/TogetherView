@@ -130,7 +130,7 @@ TogetherView/
 
 ## 🗺 Roadmap
 
-- [ ] Chrome Web Store release
+- [x] Chrome Web Store release
 - [ ] Show title display
 - [ ] Guest count indicator
 - [ ] Support for other streaming platforms
@@ -146,3 +146,7 @@ TogetherView/
 ## 🔒 Privacy
 
 [Privacy Policy](https://siddhantchawla.github.io/TogetherView/privacy)
+
+---
+
+See [RELEASING.md](RELEASING.md) for the release process.
