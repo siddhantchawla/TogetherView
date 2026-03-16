@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-and-lint:
+    name: Validate manifest & lint JS
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate manifest.json is valid JSON
+        run: |
+          if ! python3 -c "import json, sys; json.load(open('extension/manifest.json'))" 2>&1; then
+            echo "❌ extension/manifest.json is not valid JSON"
+            exit 1
+          fi
+          echo "✅ extension/manifest.json is valid JSON"
+
+      - name: Validate required manifest fields
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+
+          with open("extension/manifest.json") as f:
+              manifest = json.load(f)
+
+          required_fields = ["manifest_version", "name", "version", "background", "permissions"]
+          missing = [field for field in required_fields if field not in manifest]
+
+          if missing:
+              print(f"❌ manifest.json is missing required fields: {', '.join(missing)}")
+              sys.exit(1)
+
+          print("✅ All required manifest fields are present")
+          print(f"   name:             {manifest['name']}")
+          print(f"   version:          {manifest['version']}")
+          print(f"   manifest_version: {manifest['manifest_version']}")
+          EOF
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ESLint
+        run: npm install -g eslint@8
+
+      - name: Create ESLint config
+        run: |
+          cat > .eslintrc.json <<'EOF'
+          {
+            "env": {
+              "browser": true,
+              "es2022": true,
+              "webextensions": true
+            },
+            "extends": ["eslint:recommended"],
+            "parserOptions": {
+              "ecmaVersion": 2022,
+              "sourceType": "module"
+            },
+            "globals": {
+              "chrome": "readonly",
+              "window": "readonly",
+              "document": "readonly",
+              "navigator": "readonly",
+              "setTimeout": "readonly",
+              "clearTimeout": "readonly",
+              "WebSocket": "readonly",
+              "fetch": "readonly",
+              "MutationObserver": "readonly",
+              "Math": "readonly",
+              "JSON": "readonly",
+              "console": "readonly"
+            }
+          }
+          EOF
+
+      - name: Lint extension JS files
+        run: eslint extension/**/*.js extension/*.js
